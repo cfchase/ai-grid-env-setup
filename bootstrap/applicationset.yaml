@@ -1,4 +1,4 @@
-# The root: one Argo CD Application per apps/*/application.yaml (kahowell/ai-grid-tenant's pattern).
+# The root: one Argo CD Application per apps/*/application.yaml.
 # bootstrap/00-gitops.sh fills in GIT_REPO and GIT_REF from env.sh.
 apiVersion: argoproj.io/v1alpha1
 kind: ApplicationSet

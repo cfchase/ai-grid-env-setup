@@ -26,7 +26,7 @@ export GRID_NETWORK=grid GRID_ID=aigrid-demo
 export MODEL_NAME=facebook-opt-125m
 # The spokes' platform chart: odh-gitops main at 8897054 (2026-10-16), which has dashboard.dsc.maasPortal.
 export ODH_GITOPS_REF="${ODH_GITOPS_REF:-8897054}"
-# The nightly catalog, copied deliberately from kahowell/ai-grid-tenant apps/rhoai/nightly.yaml.
+# The nightly OpenShift AI 3.6 catalog, pinned by digest; change it deliberately.
 export RHOAI_CATALOG_IMAGE="${RHOAI_CATALOG_IMAGE:-quay.io/rhoai/rhoai-fbc-fragment:rhoai-3.6@sha256:70c700e76cb23f13a4ccc1896bfcf37238229c5aa80af7daae7fc8028c7f1d9c}"
 export LABEL_ENABLED=ai-grid/enabled LABEL_ROLE=ai-grid/role
 export LABEL_LOCATION=location LABEL_PROVISIONED=ai-grid/provisioned

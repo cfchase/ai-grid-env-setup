@@ -5,14 +5,12 @@ metadata:
   name: openshift-gitops
   namespace: openshift-gitops
 spec:
-  # Once ACM hands it clusters, 2Gi runs out during startup (kahowell/ai-grid-tenant PR 5).
+  # Once ACM hands it clusters, 2Gi runs out during startup.
   controller:
     resources:
       requests: { memory: 2Gi }
       limits: { memory: 4Gi }
   # Argo CD has no built-in health for these kinds; without a check it calls them Healthy at once.
-  # All but MultiClusterHub are lifted from kahowell/ai-grid-tenant apps/gitops-config (55a3879),
-  # with permission: CloudNativePG Cluster, Limitador, ServiceExport, ManagedClusterAddOn, SubmarinerConfig.
   resourceHealthChecks:
     - group: operator.open-cluster-management.io
       kind: MultiClusterHub

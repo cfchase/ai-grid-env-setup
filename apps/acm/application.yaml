@@ -1,4 +1,4 @@
-# One Argo CD Application per apps/*/application.yaml (the layout of kahowell/ai-grid-tenant).
+# One Argo CD Application per apps/*/application.yaml.
 # The root ApplicationSet (bootstrap/applicationset.yaml) supplies the repository, revision,
 # and path apps/acm/manifests; this file supplies the rest.
 metadata:
