@@ -22,6 +22,9 @@ metadata: { name: ai-grid-policies }
 YAML
 until kc $HOST get argocd openshift-gitops -n openshift-gitops >/dev/null 2>&1; do sleep 10; done
 kc $HOST adm policy add-cluster-role-to-user cluster-admin -z openshift-gitops-argocd-application-controller -n openshift-gitops
+# Argo CD admin for the deployer (its RBAC grants role:admin to group cluster-admins only).
+kc $HOST get group cluster-admins >/dev/null 2>&1 || kc $HOST adm groups new cluster-admins
+kc $HOST adm groups add-users cluster-admins $ARGO_ADMIN_USERS
 kc $HOST patch argocd openshift-gitops -n openshift-gitops --type merge \
   -p '{"spec":{"controller":{"resources":{"requests":{"memory":"2Gi"},"limits":{"memory":"4Gi"}}}}}'
 kc $HOST apply -f - <<'YAML'

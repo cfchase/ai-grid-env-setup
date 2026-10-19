@@ -6,6 +6,8 @@ uat "gitops ready"         "GitOps operator not installed: kc host get csv -n op
   kc $h get argocd openshift-gitops -n openshift-gitops
 uat "argo cluster-admin"   "bootstrap/20-hub.sh didn't grant the application controller cluster-admin" \
   bash -c "kc $h auth can-i '*' '*' --all-namespaces --as=system:serviceaccount:openshift-gitops:openshift-gitops-argocd-application-controller | grep -qx yes"
+uat "argo admin group"   "group cluster-admins missing or without ARGO_ADMIN_USERS: Argo CD shows nothing to that user" \
+  bash -c "for u in $ARGO_ADMIN_USERS; do kc $h get group cluster-admins -o jsonpath='{.users}' | grep -q \"\\\"\$u\\\"\" || exit 1; done"
 uat "praxis OCI repo"      "repository Secret praxis-charts missing" kc $h get secret praxis-charts -n openshift-gitops
 uat "ACM running"          "MultiClusterHub still installing (about 15 minutes), or short of CPU: kc host get mch -n open-cluster-management -o yaml" \
   bash -c "kc $h get multiclusterhub multiclusterhub -n open-cluster-management -o jsonpath='{.status.phase}' | grep -qx Running"
