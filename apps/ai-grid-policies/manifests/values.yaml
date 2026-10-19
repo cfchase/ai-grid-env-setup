@@ -5,6 +5,6 @@ placementNamespaces: [ai-grid-policies, maas-db]
 # D4: policy merges the quay.io/rhoai login into each spoke's pull secret; script means bootstrap/10-pull-secret.sh did it.
 pullSecretMode: policy
 # Start every change-making Policy in inform, read its verdict, then switch to enforce with a commit.
-pullSecretRemediation: inform
+pullSecretRemediation: enforce
 portalIdpRemediation: inform
 gridNs: grid
