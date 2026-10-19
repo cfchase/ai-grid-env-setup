@@ -16,7 +16,8 @@ spec:
           # opt-125m ships no chat template, so vLLM refuses /v1/chat/completions, the API MaaS
           # calls (ExternalModel apiFormat openai-chat). A minimal one joins the messages.
           - name: VLLM_ADDITIONAL_ARGS
-            value: "--chat-template '{% for m in messages %}{{ m.content }}\n{% endfor %}'"
+            # KServe renders this spec as a Go template first, so the Jinja braces are escaped: {{"{{"}}.
+            value: '--chat-template ''{% for m in messages %}{{"{{"}} m.content {{"}}"}} {% endfor %}'''
         resources:
           requests: { cpu: "1", memory: 8Gi }
           limits: { cpu: "2", memory: 10Gi }
