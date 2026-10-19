@@ -1,0 +1,40 @@
+apiVersion: policy.open-cluster-management.io/v1
+kind: Policy
+metadata: { name: maas-db, namespace: maas-db }
+spec:
+  remediationAction: enforce
+  disabled: false
+  policy-templates:
+    - objectDefinition:
+        apiVersion: policy.open-cluster-management.io/v1
+        kind: ConfigurationPolicy
+        metadata: { name: maas-db }
+        spec:
+          severity: high
+          object-templates:
+            - complianceType: musthave
+              objectDefinition: { apiVersion: v1, kind: Namespace, metadata: { name: redhat-ods-applications } }
+            - complianceType: musthave
+              objectDefinition: { apiVersion: v1, kind: Namespace, metadata: { name: redhat-ai-gateway-infra } }
+            - complianceType: musthave
+              objectDefinition:
+                apiVersion: v1
+                kind: Secret
+                metadata: { name: maas-db-config, namespace: redhat-ods-applications }
+                type: Opaque
+                stringData:
+                  DB_CONNECTION_URL: {{` + url + `}}
+            - complianceType: musthave
+              objectDefinition:
+                apiVersion: v1
+                kind: Secret
+                metadata: { name: maas-db-config, namespace: redhat-ai-gateway-infra }
+                type: Opaque
+                stringData:
+                  DB_CONNECTION_URL: {{` + url + `}}
+---
+apiVersion: policy.open-cluster-management.io/v1
+kind: PlacementBinding
+metadata: { name: maas-db, namespace: maas-db }
+placementRef: { apiGroup: cluster.open-cluster-management.io, kind: Placement, name: ai-grid-ingress }
+subjects: [{ apiGroup: policy.open-cluster-management.io, kind: Policy, name: maas-db }]

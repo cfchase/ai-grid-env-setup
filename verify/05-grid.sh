@@ -13,4 +13,17 @@ uat "enrollment db ready"    "PVC not bound (gp3-csi) or the DB cert missing" \
   bash -c "kc $h get pods -n grid-enrollment -l app.kubernetes.io/component=db -o jsonpath='{.items[0].status.containerStatuses[0].ready}' | grep -qx true"
 uat "hub info for spokes"    "bootstrap/50-grid-hub-info.sh not run" \
   bash -c "kc $h get configmap ai-grid-hub-info -n ai-grid-policies -o json | jq -e '.data.hubSiteDigest | length == 64'"
+for s in $SPOKES; do
+  r=$(role_of $s)
+  uat "$s grid operator app" "chart pull from ghcr.io (repository praxis-charts) or a values error" app grid-operator-$s
+  uat "$s operator ready"    "no grid-site-identity in $GRID_NS (enrollment, Task 4; invite, Task 11)" \
+    kc $s rollout status deploy/grid-operator -n $GRID_NS --timeout=5s
+  [[ $r != ingress ]]   && uat "$s provider gateway" "gatewayConfig error: kc $s logs deploy/grid-provider -n $GRID_NS" \
+    kc $s rollout status deploy/grid-provider -n $GRID_NS --timeout=5s
+  [[ $r != inference ]] && uat "$s consumer gateway" "gatewayConfig error: kc $s logs deploy/grid-gateway -n $GRID_NS" \
+    kc $s rollout status deploy/grid-gateway -n $GRID_NS --timeout=5s
+  uat "$s sites Active"      "gossip not converged: kc $s logs deploy/grid-operator -n $GRID_NS" \
+    bash -c "! kc $s get gridsites -o jsonpath='{range .items[*]}{.status.phase}{\"\\n\"}{end}' | grep -v Active"
+  uat "$s ai-grid-ready"     "DSC not Ready or the grid operator not running on $s (D3)" pol $s ai-grid-ready
+done
 summary
