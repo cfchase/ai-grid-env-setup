@@ -1,0 +1,4 @@
+out/
+*.kubeconfig
+*.token
+.env
