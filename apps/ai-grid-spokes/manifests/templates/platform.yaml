@@ -28,7 +28,9 @@ spec:
           ref: values
       destination: { server: '{{`{{.server}}`}}', namespace: odh-gitops }
       ignoreDifferences:
-        - { group: gateway.networking.k8s.io, kind: Gateway, name: maas-default-gateway, namespace: openshift-ingress, jsonPointers: [/spec] }
+        # Only the listener hostname, which the MaaS operator writes; ignoring all of /spec would
+        # also hide changes from git (the TLS and parameters settings in spokes/platform/values/ingress.yaml).
+        - { group: gateway.networking.k8s.io, kind: Gateway, name: maas-default-gateway, namespace: openshift-ingress, jqPathExpressions: [".spec.listeners[].hostname"] }
       syncPolicy:
         automated: { prune: true, selfHeal: true }
         retry: { limit: 10, backoff: { duration: 30s, factor: 2, maxDuration: 10m } }
