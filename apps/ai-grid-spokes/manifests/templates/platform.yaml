@@ -1,0 +1,35 @@
+apiVersion: argoproj.io/v1alpha1
+kind: ApplicationSet
+metadata: { name: ai-grid-platform, namespace: openshift-gitops }
+spec:
+  goTemplate: true
+  goTemplateOptions: ["missingkey=error"]
+  syncPolicy: { preserveResourcesOnDeletion: true }
+  generators:
+    - clusters:
+        selector:
+          matchLabels: { apps.open-cluster-management.io/acm-cluster: "true", ai-grid/enabled: "true" }
+          matchExpressions: [{ key: ai-grid/role, operator: In, values: [ingress, inference, combined] }]
+  template:
+    metadata: { name: 'platform-{{`{{.name}}`}}' }
+    spec:
+      project: default
+      sources:
+        - repoURL: https://github.com/opendatahub-io/odh-gitops.git
+          targetRevision: "{{ .Values.odhGitopsRef }}"
+          path: charts/rhai-on-openshift-chart
+          helm:
+            releaseName: rhai-on-openshift
+            valueFiles:
+              - $values/spokes/platform/values/common.yaml
+              - '$values/spokes/platform/values/{{`{{ if eq (index .metadata.labels "ai-grid/role") "inference" }}`}}inference{{`{{ else }}`}}ingress{{`{{ end }}`}}.yaml'
+        - repoURL: {{ required "gitRepo" .Values.gitRepo }}
+          targetRevision: {{ required "gitRef" .Values.gitRef }}
+          ref: values
+      destination: { server: '{{`{{.server}}`}}', namespace: odh-gitops }
+      ignoreDifferences:
+        - { group: gateway.networking.k8s.io, kind: Gateway, name: maas-default-gateway, namespace: openshift-ingress, jsonPointers: [/spec] }
+      syncPolicy:
+        automated: { prune: true, selfHeal: true }
+        retry: { limit: 10, backoff: { duration: 30s, factor: 2, maxDuration: 10m } }
+        syncOptions: [CreateNamespace=true, SkipDryRunOnMissingResource=true, RespectIgnoreDifferences=true]

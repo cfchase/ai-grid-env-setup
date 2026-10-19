@@ -18,8 +18,10 @@ spec:
                 kind: Secret
                 metadata: { name: ai-grid-idp, namespace: openshift-config }
                 type: Opaque
+                # A hub-template fromSecret arrives encrypted and decrypts on the spoke to the Secret's
+                # base64 data, which is what a data field takes (no protect: it would double-encrypt).
                 data:
-                  clientSecret: {{`'{{hub fromSecret "ai-grid-policies" (printf "portal-idp-%s" .ManagedClusterName) "clientSecret" | protect hub}}'`}}
+                  clientSecret: {{`'{{hub fromSecret "ai-grid-policies" (printf "portal-idp-%s" .ManagedClusterName) "clientSecret" hub}}'`}}
             - complianceType: musthave
               objectDefinition:
                 apiVersion: config.openshift.io/v1

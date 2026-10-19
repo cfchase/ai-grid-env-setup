@@ -1,0 +1,34 @@
+profile: maas
+components:
+  dashboard:
+    dsc:
+      standard: { managementState: Managed }
+      maasPortal: { managementState: Managed }
+  kserve:
+    gateway:
+      spec:
+        listeners:
+          - name: https
+            port: 443
+            protocol: HTTPS
+            allowedRoutes:
+              namespaces:
+                from: Selector
+                selector:
+                  matchExpressions:
+                    - { key: kubernetes.io/metadata.name, operator: In, values: [openshift-ingress, aigrid-models] }
+  aigateway:
+    modelsAsAService:
+      gateway:
+        spec:
+          listeners:
+            - name: https
+              port: 443
+              protocol: HTTPS
+              allowedRoutes:
+                namespaces:
+                  from: Selector
+                  selector:
+                    matchExpressions:
+                      # MaaS models in a grid are ExternalModels pointing at the grid gateway.
+                      - { key: kubernetes.io/metadata.name, operator: In, values: [openshift-ingress, models-as-a-service, redhat-ai-gateway-infra] }

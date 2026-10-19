@@ -32,3 +32,10 @@ spec:
   templatePatch: |
     spec:
       syncPolicy: {{ .spec.syncPolicy | toJson }}
+      {{- if hasKey .spec "helmGit" }}
+      source:
+        helm:
+          parameters:
+            - { name: gitRepo, value: "${GIT_REPO}" }
+            - { name: gitRef, value: "${GIT_REF}" }
+      {{- end }}

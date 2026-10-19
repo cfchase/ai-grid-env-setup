@@ -1,0 +1,36 @@
+apiVersion: argoproj.io/v1alpha1
+kind: ApplicationSet
+metadata: { name: ai-grid-grid-operator, namespace: openshift-gitops }
+spec:
+  goTemplate: true
+  goTemplateOptions: ["missingkey=error"]
+  syncPolicy: { preserveResourcesOnDeletion: true }
+  generators:
+    - clusters:
+        selector:
+          matchLabels: { apps.open-cluster-management.io/acm-cluster: "true", ai-grid/enabled: "true" }
+  template:
+    metadata: { name: 'grid-operator-{{`{{.name}}`}}' }
+    spec:
+      project: default
+      source:
+        repoURL: ghcr.io/praxis-proxy/charts
+        chart: grid-operator
+        targetRevision: "{{ .Values.gridVersion }}"
+        helm:
+          releaseName: grid-operator
+          values: |
+            grid: { id: {{ .Values.gridId }}, network: {{ .Values.gridNetwork }} }
+            swim: { siteName: {{`{{.name}}`}} }
+            rbac: { enrollmentNamespace: grid-enrollment }
+            {{`{{- if eq .name "local-cluster" }}`}}
+            enrollment: { enabled: false }
+            {{`{{- else }}`}}
+            platform: aws
+            enrollment: { enabled: true, url: "https://{{ .Values.enrollHost }}" }
+            {{`{{- end }}`}}
+      destination: { server: '{{`{{.server}}`}}', namespace: {{ .Values.gridNs }} }
+      syncPolicy:
+        automated: { selfHeal: true }
+        retry: { limit: 10, backoff: { duration: 30s, factor: 2, maxDuration: 10m } }
+        syncOptions: [CreateNamespace=true]
