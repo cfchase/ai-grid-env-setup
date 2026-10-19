@@ -28,6 +28,11 @@ spec:
         if obj.status ~= nil and obj.status.phase ~= nil then
           hs.message = obj.status.phase
           if obj.status.phase == "Cluster in healthy state" then hs.status = "Healthy" end
-          if string.find(obj.status.phase, "unrecoverable") or string.find(obj.status.phase, "Invalid") then hs.status = "Degraded" end
+          -- Argo CD's Lua sandbox has no string library: compare whole phase names.
+          local degraded = {
+            ["Cluster is unrecoverable and needs manual intervention"] = true,
+            ["Invalid cluster definition"] = true,
+          }
+          if degraded[obj.status.phase] then hs.status = "Degraded" end
         end
         return hs
