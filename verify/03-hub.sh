@@ -6,7 +6,9 @@ uat "gitops ready"         "GitOps operator not installed: kc host get csv -n op
   kc $h get argocd openshift-gitops -n openshift-gitops
 uat "root ApplicationSet"  "bootstrap/00-gitops.sh not run: the root ApplicationSet apps creates one app per apps/*/application.yaml" \
   kc $h get applicationset apps -n openshift-gitops
-for a in gitops-config acm maas-db ai-grid-policies; do
+uat "app ai-grid-policies synced" "a Helm render error in apps/ai-grid-policies (Degraded alone is an inform Policy, by design)" \
+  bash -c "kc $h get applications.argoproj.io ai-grid-policies -n openshift-gitops -o jsonpath='{.status.sync.status}' | grep -qx Synced"
+for a in gitops-config acm maas-db; do
   uat "app $a"            "Argo CD app not Synced/Healthy: open it in the Argo CD UI, or kc host get application $a -n openshift-gitops -o yaml" app $a
 done
 uat "argo cluster-admin"   "bootstrap/00-gitops.sh didn't apply bootstrap/gitops-admin.yaml" \
