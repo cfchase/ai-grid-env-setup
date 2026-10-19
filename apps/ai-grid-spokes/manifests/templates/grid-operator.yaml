@@ -31,6 +31,9 @@ spec:
                   model: facebook/opt-125m
                   backendKind: local
                   endpoint: https://{{ .Values.modelName }}-kserve-workload-svc.aigrid-models.svc:8000
+            # The provider gateway's fixed ClusterIP: the address the operator advertises and probes
+            # (no LoadBalancer to discover), which moves the site from Discovered to Active.
+            gateway: { address: "{{ .Values.providerIP }}:8443" }
             {{`{{- else }}`}}
             grid: { id: {{ .Values.gridId }}, network: {{ .Values.gridNetwork }} }
             {{`{{- end }}`}}
