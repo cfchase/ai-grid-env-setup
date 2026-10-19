@@ -2,3 +2,4 @@ out/
 *.kubeconfig
 *.token
 .env
+apps/*/manifests/charts/
