@@ -12,6 +12,28 @@ spec:
       limits: { memory: 4Gi }
   # Argo CD has no built-in health for these kinds; without a check it calls them Healthy at once.
   resourceHealthChecks:
+    - group: k8s.keycloak.org
+      kind: Keycloak
+      check: |
+        hs = { status = "Progressing", message = "Waiting for Keycloak status" }
+        if obj.status ~= nil and obj.status.conditions ~= nil then
+          for _, c in ipairs(obj.status.conditions) do
+            if c.type == "HasErrors" and c.status == "True" then hs.status = "Degraded"; hs.message = c.message; return hs end
+            if c.type == "Ready" and c.status == "True" then hs.status = "Healthy"; hs.message = "Ready" end
+          end
+        end
+        return hs
+    - group: k8s.keycloak.org
+      kind: KeycloakRealmImport
+      check: |
+        hs = { status = "Progressing", message = "Waiting for the realm import" }
+        if obj.status ~= nil and obj.status.conditions ~= nil then
+          for _, c in ipairs(obj.status.conditions) do
+            if c.type == "HasErrors" and c.status == "True" then hs.status = "Degraded"; hs.message = c.message; return hs end
+            if c.type == "Done" and c.status == "True" then hs.status = "Healthy"; hs.message = "Imported" end
+          end
+        end
+        return hs
     - group: operator.open-cluster-management.io
       kind: MultiClusterHub
       check: |
