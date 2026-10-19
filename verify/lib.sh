@@ -6,7 +6,8 @@ check() { local name=$1; shift; if "$@" >/dev/null 2>&1; then echo "PASS $name";
 uat() { local name=$1 hint=$2; shift 2
   if "$@" >/dev/null 2>&1; then echo "PASS $name"; else echo "FAIL $name"; echo "     likely: $hint"; FAILS=$((FAILS+1)); fi; }
 pol() { kc $HOST get policy "ai-grid-policies.$2" -n "$1" -o jsonpath='{.status.compliant}' | grep -qx Compliant; }
-app() { kc $HOST get application "$1" -n openshift-gitops -o jsonpath='{.status.sync.status} {.status.health.status}' | grep -qx 'Synced Healthy'; }
+# applications.argoproj.io: on an ACM hub, plain "application" means ACM's app.k8s.io kind.
+app() { kc $HOST get applications.argoproj.io "$1" -n openshift-gitops -o jsonpath='{.status.sync.status} {.status.health.status}' | grep -qx 'Synced Healthy'; }
 # MaaS's public URL on a spoke: the maas-api Route if there is one, else the gateway's maas.<apps domain>.
 maas_url() {
   local r; r=$(kc "$1" get route maas-api-route -n redhat-ai-gateway-infra -o jsonpath='{.spec.host}' 2>/dev/null)

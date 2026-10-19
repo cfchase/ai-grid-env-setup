@@ -6,6 +6,8 @@ metadata:
   name: apps
   namespace: openshift-gitops
 spec:
+  # Deleting this ApplicationSet must never cascade into ACM, Argo CD settings, or the database.
+  syncPolicy: { preserveResourcesOnDeletion: true }
   goTemplate: true
   goTemplateOptions: ["missingkey=error"]
   generators:
