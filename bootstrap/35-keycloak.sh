@@ -3,6 +3,13 @@ source "$(dirname "$0")/lib.sh"
 ns=$KEYCLOAK_NS realm=ai-grid
 kc $HOST wait keycloakrealmimport/ai-grid -n $ns --for=jsonpath='{.status.conditions[?(@.type=="Done")].status}'=True --timeout=15m
 kchost=$(kc $HOST get route maas-keycloak -n $ns -o jsonpath='{.spec.host}')
+# Pin Keycloak's hostname to the Route's host, so links and the issuer never come from request
+# headers. Set here, not in git, to keep the host name out of the repository; Argo CD doesn't
+# manage this field, so it doesn't revert it.
+if [[ $(kc $HOST get keycloak maas-keycloak -n $ns -o jsonpath='{.spec.hostname.hostname}') != "https://$kchost" ]]; then
+  kc $HOST patch keycloak maas-keycloak -n $ns --type merge -p "{\"spec\":{\"hostname\":{\"hostname\":\"https://$kchost\"}}}"
+  kc $HOST wait keycloak/maas-keycloak -n $ns --for=condition=Ready --timeout=10m
+fi
 au=$(kc $HOST get secret maas-keycloak-initial-admin -n $ns -o jsonpath='{.data.username}' | base64 -d)
 ap=$(kc $HOST get secret maas-keycloak-initial-admin -n $ns -o jsonpath='{.data.password}' | base64 -d)
 tok=$(curl -fsS -d grant_type=password -d client_id=admin-cli -d username="$au" --data-urlencode password="$ap" \

@@ -23,8 +23,10 @@ for s in $SPOKES; do
   if [[ -z $id ]]; then api -X POST "$base/clients" -d "$body" >/dev/null; id=$(api "$base/clients?clientId=$cid" | jq -r '.[0].id')
   else api -X PUT "$base/clients/$id" -d "$body" >/dev/null; fi
   sec=$(api "$base/clients/$id/client-secret" | jq -r .value)
-  kc $HOST create secret generic portal-idp-$s -n ai-grid-policies \
-    --from-literal=clientId="$cid" --from-literal=clientSecret="$sec" --dry-run=client -o yaml | kc $HOST apply -f - >/dev/null
+  # The secret reaches kubectl through the environment and a pipe, never argv.
+  SEC=$sec jq -n --arg n "portal-idp-$s" --arg cid "$cid" \
+    '{apiVersion: "v1", kind: "Secret", metadata: {name: $n, namespace: "ai-grid-policies"}, stringData: {clientId: $cid, clientSecret: env.SEC}}' \
+    | kc $HOST apply -f - >/dev/null
   unset sec
   log "$s: client $cid ready; its secret is in ai-grid-policies/portal-idp-$s"
 done

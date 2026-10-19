@@ -27,7 +27,8 @@ spec:
     database: keycloak
     usernameSecret: { name: keycloak-db-app, key: username }
     passwordSecret: { name: keycloak-db-app, key: password }
-  # No hostname: Keycloak takes the host from the router's X-Forwarded headers, so no host name is in git.
+  # bootstrap/35-keycloak.sh pins spec.hostname.hostname to the Route's host once the Route exists
+  # (no host name in git); until then Keycloak takes it from the router's forwarded headers.
   hostname: { strict: false }
   proxy: { headers: xforwarded }
   http: { httpEnabled: true }
