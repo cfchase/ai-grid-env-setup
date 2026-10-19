@@ -41,4 +41,18 @@ for s in $SPOKES; do
     uat "$s has no MaaS"      "inference values enabled aigateway" bash -c "! kc $s get deploy maas-api -n redhat-ai-gateway-infra"
   fi
 done
+for s in $MODEL_SITES; do
+  uat "$s models app"    "spokes/clusters/$s/models missing, or the ApplicationSet didn't select $s" app models-$s
+  uat "$s model Ready"   "image pull or memory: kc $s describe pod -n aigrid-models" \
+    bash -c "kc $s get llminferenceservice $MODEL_NAME -n aigrid-models -o jsonpath='{.status.conditions[?(@.type==\"Ready\")].status}' | grep -qx True"
+  uat "$s model answers" "vLLM still loading, or the workload Service name differs: kc $s get svc -n aigrid-models" \
+    bash -c "kc $s run probe-\$RANDOM -n aigrid-models --rm -i --restart=Never --image=registry.access.redhat.com/ubi9/ubi-minimal:latest --quiet -- \
+      curl -sk https://${MODEL_NAME}-kserve-workload-svc.aigrid-models.svc:8000/aigrid-models/${MODEL_NAME}/v1/models | grep -q opt-125m"
+done
+for s in $SPOKES; do
+  [[ $(role_of $s) == inference ]] && continue
+  uat "$s tenant app"     "spokes/tenant render error, or a MaaS CRD missing (DSC not Ready)" app tenant-$s
+  uat "$s MaaSModelRef Ready" "ExternalProvider can't reach grid-gateway.$GRID_NS.svc:8080, or no subscription and auth policy pair" \
+    bash -c "kc $s get maasmodelref $MODEL_NAME -n models-as-a-service -o jsonpath='{.status.phase}' | grep -qx Ready"
+done
 summary

@@ -1,0 +1,19 @@
+# MaaS reaches models through the grid: the consumer gateway is the "external" provider.
+# Plain HTTP on 8080 inside the cluster. The annotations are set under both prefixes because
+# MaaS main reads maas.opendatahub.io/* from the ExternalModel, and the dev cluster's nightly
+# used inference.opendatahub.io/* on the ExternalProvider.
+apiVersion: inference.opendatahub.io/v1alpha1
+kind: ExternalProvider
+metadata:
+  name: grid-provider
+  namespace: models-as-a-service
+  annotations:
+    inference.opendatahub.io/tls: "false"
+    inference.opendatahub.io/port: "8080"
+    maas.opendatahub.io/tls: "false"
+    maas.opendatahub.io/port: "8080"
+spec:
+  provider: openai
+  endpoint: grid-gateway.grid.svc.cluster.local
+  # The grid gateway ignores it; MaaS requires one. Policy grid-upstream-key generates it on the spoke.
+  auth: { type: apikey, secretRef: { name: grid-maas-upstream } }
