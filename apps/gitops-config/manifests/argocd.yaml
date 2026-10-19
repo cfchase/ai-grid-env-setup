@@ -1,0 +1,33 @@
+# Server-side applied: Argo CD owns only these fields of the operator's ArgoCD instance.
+apiVersion: argoproj.io/v1beta1
+kind: ArgoCD
+metadata:
+  name: openshift-gitops
+  namespace: openshift-gitops
+spec:
+  # Once ACM hands it clusters, 2Gi runs out during startup (kahowell/ai-grid-tenant PR 5).
+  controller:
+    resources:
+      requests: { memory: 2Gi }
+      limits: { memory: 4Gi }
+  # Argo CD has no built-in health for these kinds; without a check it calls them Healthy at once.
+  resourceHealthChecks:
+    - group: operator.open-cluster-management.io
+      kind: MultiClusterHub
+      check: |
+        hs = { status = "Progressing", message = "Waiting for MultiClusterHub status" }
+        if obj.status ~= nil and obj.status.phase ~= nil then
+          hs.message = obj.status.phase
+          if obj.status.phase == "Running" then hs.status = "Healthy" end
+        end
+        return hs
+    - group: postgresql.cnpg.io
+      kind: Cluster
+      check: |
+        hs = { status = "Progressing", message = "Waiting for CloudNativePG status" }
+        if obj.status ~= nil and obj.status.phase ~= nil then
+          hs.message = obj.status.phase
+          if obj.status.phase == "Cluster in healthy state" then hs.status = "Healthy" end
+          if string.find(obj.status.phase, "unrecoverable") or string.find(obj.status.phase, "Invalid") then hs.status = "Degraded" end
+        end
+        return hs

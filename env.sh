@@ -15,9 +15,6 @@ export ENV_FILE="${ENV_FILE:-$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/.env}
 # D4: policy (default: ACM Policy rhoai-pull-secret) or script (fallback: bootstrap/10-pull-secret.sh).
 export PULL_SECRET_MODE="${PULL_SECRET_MODE:-policy}"
 # Keycloak namespace on the hub (Task 3): the RHBK operator demo.redhat.com pre-installs (Chris, 2026-10-19).
-# OpenShift users who get Argo CD admin: Argo CD maps the OpenShift group cluster-admins to role:admin,
-# and a demo.redhat.com order has no such group (its admin is cluster-admin by a direct binding).
-export ARGO_ADMIN_USERS="${ARGO_ADMIN_USERS:-admin}"
 export KEYCLOAK_NS="${KEYCLOAK_NS:-keycloak}"
 # Grid release for every chart and image. Switch to 0.2.1 once its tag and charts are published
 # (upstream main 5963265, "prepare Grid v0.2.1", wasn't tagged on 2026-10-19).

@@ -1,0 +1,4 @@
+# Policies, their Placements, and the hub Secrets they read (Task 5 adds them here).
+apiVersion: v1
+kind: Namespace
+metadata: { name: ai-grid-policies }

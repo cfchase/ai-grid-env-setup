@@ -1,13 +1,10 @@
 #!/usr/bin/env bash
+# Hub Secrets that can't live in git. rhoai-quay-pull: the deployer's quay login for Policy
+# rhoai-pull-secret (D4). The login goes through a pipe in a subshell, never argv; never printed.
 source "$(dirname "$0")/lib.sh"
 cd "$(dirname "$0")/.."
-kc $HOST apply -f hub/postgres/operator.yaml
-until kc $HOST get crd clusters.postgresql.cnpg.io >/dev/null 2>&1; do sleep 10; done
-# The CRD appears before the operator's webhook has endpoints: retry until it accepts the Cluster.
-until kc $HOST apply -f hub/postgres/maas-db.yaml 2>/dev/null; do log "waiting for the CloudNativePG webhook"; sleep 15; done
-kc $HOST wait cluster.postgresql.cnpg.io/maas-db -n maas-db   --for=jsonpath='{.status.phase}'='Cluster in healthy state' --timeout=15m
-# rhoai-quay-pull: the deployer's quay login for Policy rhoai-pull-secret (D4). Never printed.
-[[ -f "$ENV_FILE" ]] || die "missing $ENV_FILE: run hack/quay-env.sh (Step 2)"
+until kc $HOST get namespace ai-grid-policies >/dev/null 2>&1; do log "waiting for Argo CD app ai-grid-policies"; sleep 10; done
+[[ -f "$ENV_FILE" ]] || die "missing $ENV_FILE: run hack/quay-env.sh"
 (
   set -a; source "$ENV_FILE"; set +a
   [[ -n "${QUAY_USER:-}" && -n "${QUAY_TOKEN:-}" ]] || die "QUAY_USER or QUAY_TOKEN empty in $ENV_FILE"

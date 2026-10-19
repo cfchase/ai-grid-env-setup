@@ -4,7 +4,10 @@ metadata: { name: maas-db }
 ---
 apiVersion: postgresql.cnpg.io/v1
 kind: Cluster
-metadata: { name: maas-db, namespace: maas-db }
+metadata:
+  name: maas-db
+  namespace: maas-db
+  annotations: { argocd.argoproj.io/sync-wave: "3" }
 spec:
   instances: 1
   bootstrap: { initdb: { database: maas, owner: maas_api } }
