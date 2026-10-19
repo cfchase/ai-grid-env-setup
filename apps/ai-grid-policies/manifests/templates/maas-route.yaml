@@ -1,0 +1,45 @@
+apiVersion: policy.open-cluster-management.io/v1
+kind: Policy
+metadata: { name: maas-route, namespace: ai-grid-policies }
+spec:
+  remediationAction: enforce
+  disabled: false
+  policy-templates:
+    - objectDefinition:
+        apiVersion: policy.open-cluster-management.io/v1
+        kind: ConfigurationPolicy
+        metadata: { name: maas-route }
+        spec:
+          severity: medium
+          object-templates:
+            # The MaaS gateway's Service: ClusterIP, with a service-CA serving certificate the
+            # listener terminates TLS with (spokes/platform/values/ingress.yaml points at both).
+            - complianceType: musthave
+              objectDefinition:
+                apiVersion: v1
+                kind: ConfigMap
+                metadata: { name: maas-gateway-options, namespace: openshift-ingress }
+                data:
+                  service: |
+                    metadata:
+                      annotations:
+                        service.beta.openshift.io/serving-cert-secret-name: "maas-gw-service-tls"
+                    spec:
+                      type: ClusterIP
+            # The public entry point: maas.<this spoke's apps domain>, looked up on the spoke.
+            - complianceType: musthave
+              objectDefinition:
+                apiVersion: route.openshift.io/v1
+                kind: Route
+                metadata: { name: maas-gateway-route, namespace: openshift-ingress }
+                spec:
+                  host: {{`'maas.{{ (lookup "config.openshift.io/v1" "Ingress" "" "cluster").spec.domain }}'`}}
+                  to: { kind: Service, name: maas-default-gateway-maas-gateway-class, weight: 100 }
+                  port: { targetPort: 443 }
+                  tls: { termination: reencrypt, insecureEdgeTerminationPolicy: Redirect }
+---
+apiVersion: policy.open-cluster-management.io/v1
+kind: PlacementBinding
+metadata: { name: maas-route, namespace: ai-grid-policies }
+placementRef: { apiGroup: cluster.open-cluster-management.io, kind: Placement, name: ai-grid-ingress }
+subjects: [{ apiGroup: policy.open-cluster-management.io, kind: Policy, name: maas-route }]

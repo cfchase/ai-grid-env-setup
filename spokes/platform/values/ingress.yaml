@@ -21,10 +21,18 @@ components:
     modelsAsAService:
       gateway:
         spec:
+          # Exposed by an OpenShift Route rather than an AWS load balancer: Policy maas-route creates
+          # the parameters ConfigMap (ClusterIP Service with a serving certificate) and the Route,
+          # whose host maas.<apps domain> it looks up on the spoke, so no host name is in git.
+          infrastructure:
+            parametersRef: { group: "", kind: ConfigMap, name: maas-gateway-options }
           listeners:
             - name: https
               port: 443
               protocol: HTTPS
+              tls:
+                mode: Terminate
+                certificateRefs: [{ group: "", kind: Secret, name: maas-gw-service-tls }]
               allowedRoutes:
                 namespaces:
                   from: Selector
