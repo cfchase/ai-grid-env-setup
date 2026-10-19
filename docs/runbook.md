@@ -28,3 +28,4 @@ Remove them with `oc adm groups remove-users cluster-admins <user>` and
 
 | Date | Checkpoint | `make verify` | Pair UAT result | Notes |
 |---|---|---|---|---|
+| 2026-10-19 | 1. Hub platform (Task 2) | ALL PASS | Passed with Chris. Fixed during UAT: Argo CD showed nothing (deployer not in group `cluster-admins`); the hub moved to Argo CD apps (`apps/*`); access kept out of git. Database kept on CloudNativePG (persistent 20Gi gp3; no backups, no `Delete=false` guard, by choice). | Console perspective is "Fleet management" in ACM 2.17; CloudNativePG pods show under Pods, not Workloads. |
