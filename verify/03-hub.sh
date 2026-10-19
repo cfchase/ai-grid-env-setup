@@ -12,7 +12,7 @@ done
 uat "argo cluster-admin"   "bootstrap/00-gitops.sh didn't apply bootstrap/gitops-admin.yaml" \
   bash -c "kc $h auth can-i '*' '*' --all-namespaces --as=system:serviceaccount:openshift-gitops:openshift-gitops-argocd-application-controller | grep -qx yes"
 uat "argo admin group"   "group cluster-admins lacks the users in apps/gitops-config/manifests/group.yaml: Argo CD shows nothing to them" \
-  bash -c "for u in \$(yq '.users[]' apps/gitops-config/manifests/group.yaml); do kc $h get group cluster-admins -o jsonpath='{.users}' | grep -q \"\\"\$u\\"\" || exit 1; done"
+  bash -c "for u in \$(yq '.users[]' apps/gitops-config/manifests/group.yaml); do kc $h get group cluster-admins -o json | jq -e --arg u \"\$u\" '.users | index(\$u)' >/dev/null || exit 1; done"
 uat "praxis OCI repo"      "Argo CD app gitops-config didn't create Secret praxis-charts" kc $h get secret praxis-charts -n openshift-gitops
 uat "ACM running"          "MultiClusterHub still installing (about 15 minutes), or short of CPU: kc host get mch -n open-cluster-management -o yaml" \
   bash -c "kc $h get multiclusterhub multiclusterhub -n open-cluster-management -o jsonpath='{.status.phase}' | grep -qx Running"
