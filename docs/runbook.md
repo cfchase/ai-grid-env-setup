@@ -29,3 +29,4 @@ Remove them with `oc adm groups remove-users cluster-admins <user>` and
 | Date | Checkpoint | `make verify` | Pair UAT result | Notes |
 |---|---|---|---|---|
 | 2026-10-19 | 1. Hub platform (Task 2) | ALL PASS | Passed with Chris. Fixed during UAT: Argo CD showed nothing (deployer not in group `cluster-admins`); the hub moved to Argo CD apps (`apps/*`); access kept out of git. Database kept on CloudNativePG (persistent 20Gi gp3; no backups, no `Delete=false` guard, by choice). | Console perspective is "Fleet management" in ACM 2.17; CloudNativePG pods show under Pods, not Workloads. |
+| 2026-10-19 | 2. Keycloak (Task 3) | ALL PASS | **Pending** (Chris away; built autonomously) | Realm ai-grid: org1/org2, alice/dave/bob, maas orgs claim verified in tokens; own CloudNativePG database; Route maas-keycloak (demo Keycloak untouched). |
