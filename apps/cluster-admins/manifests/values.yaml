@@ -1,6 +1,0 @@
-# Users who get cluster-admin on the hub and admin in Argo CD. Each entry renders a
-# ClusterRoleBinding cluster-admin-<user> and a member of group cluster-admins; removing an
-# entry revokes both on the next sync. Entries must be DNS-1123-safe usernames (no '@').
-# admin: the demo.redhat.com order's user (already cluster-admin by the order's own binding).
-cluster_admins:
-  - admin

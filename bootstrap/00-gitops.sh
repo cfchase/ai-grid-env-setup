@@ -20,5 +20,11 @@ spec: { channel: latest, name: openshift-gitops-operator, source: redhat-operato
 YAML
 until kc $HOST get argocd openshift-gitops -n openshift-gitops >/dev/null 2>&1; do sleep 10; done
 kc $HOST apply -f bootstrap/gitops-admin.yaml
+# Argo CD admin for the person running this: Argo CD maps OpenShift group cluster-admins to
+# role:admin, and a demo.redhat.com order has no such group. Who else gets access is per
+# environment, so it stays out of git (docs/runbook.md, "Access").
+me=$(kc $HOST whoami)
+kc $HOST get group cluster-admins >/dev/null 2>&1 || kc $HOST adm groups new cluster-admins
+kc $HOST adm groups add-users cluster-admins "$me" >/dev/null
 GIT_REPO=$GIT_REPO GIT_REF=$GIT_REF envsubst '${GIT_REPO} ${GIT_REF}' < bootstrap/applicationset.yaml | kc $HOST apply -f -
 log "Argo CD now builds the hub from $GIT_REPO@$GIT_REF apps/*; watch: kc host get applications -n openshift-gitops"

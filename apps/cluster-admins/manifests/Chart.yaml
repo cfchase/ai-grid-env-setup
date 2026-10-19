@@ -1,9 +1,0 @@
-# Lifted from kahowell/ai-grid-tenant cluster-config/chart (55a3879), with permission.
-apiVersion: v2
-name: cluster-admins
-description: >
-  Grants cluster-admin and Argo CD admin to a Git-managed list of users: one
-  ClusterRoleBinding per user, and membership in the OpenShift group cluster-admins,
-  which Argo CD maps to role:admin.
-type: application
-version: 0.2.0

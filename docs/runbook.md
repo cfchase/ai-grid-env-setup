@@ -10,6 +10,20 @@ Recorded by Task 1, Step 5 (read-only, 2026-10-19). Host names stay out of this 
 
 Run every script with `HOST_KUBECONFIG` pointing at the hub's kubeconfig file, set in the shell, never in git.
 
+## Access
+
+Who can use the hub is per environment, so it isn't in git. `bootstrap/00-gitops.sh` makes the
+person who runs it an Argo CD admin (OpenShift group `cluster-admins`, which Argo CD maps to
+`role:admin`). To give someone else access, once they can log in to the cluster:
+
+```bash
+oc adm groups add-users cluster-admins <user>                           # Argo CD admin
+oc adm policy add-cluster-role-to-user cluster-admin <user>              # cluster-admin, if needed
+```
+
+Remove them with `oc adm groups remove-users cluster-admins <user>` and
+`oc adm policy remove-cluster-role-from-user cluster-admin <user>`.
+
 ## UAT log
 
 | Date | Checkpoint | `make verify` | Pair UAT result | Notes |
