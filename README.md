@@ -11,3 +11,9 @@ from the [odh-gitops](https://github.com/opendatahub-io/odh-gitops) chart.
 
 Set `HOST_KUBECONFIG` to the hub's kubeconfig file in your shell before running anything.
 Nothing secret is stored in this repository.
+
+## Credits
+
+The `apps/*` layout and several apps follow, and may copy from,
+[kahowell/ai-grid-tenant](https://github.com/kahowell/ai-grid-tenant) by Kevin Howell, used with his
+permission (2026-10-19). Files copied from it say so at the top.
