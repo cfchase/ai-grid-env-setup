@@ -10,6 +10,10 @@ metadata:
   annotations: { argocd.argoproj.io/sync-wave: "3" }
 spec:
   instances: 1
+  # maas-api's egress NetworkPolicy (maas-api-egress-restrict) allows port 5432 only to pods
+  # labelled app=postgres, so the database pods carry that label.
+  inheritedMetadata:
+    labels: { app: postgres }
   bootstrap: { initdb: { database: maas, owner: maas_api } }
   storage: { size: 20Gi }
   resources:
