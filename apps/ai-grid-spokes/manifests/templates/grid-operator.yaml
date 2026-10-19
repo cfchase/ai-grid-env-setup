@@ -20,8 +20,20 @@ spec:
         helm:
           releaseName: grid-operator
           values: |
-            grid: { id: {{ .Values.gridId }}, network: {{ .Values.gridNetwork }} }
             rbac: { enrollmentNamespace: grid-enrollment }
+            {{`{{- if ne (index .metadata.labels "ai-grid/role") "ingress" }}`}}
+            grid:
+              id: {{ .Values.gridId }}
+              network: {{ .Values.gridNetwork }}
+              # The model this site serves, registered as its InferenceProvider.
+              providers:
+                {{ .Values.modelName }}:
+                  model: facebook/opt-125m
+                  backendKind: local
+                  endpoint: https://{{ .Values.modelName }}-kserve-workload-svc.aigrid-models.svc:8000
+            {{`{{- else }}`}}
+            grid: { id: {{ .Values.gridId }}, network: {{ .Values.gridNetwork }} }
+            {{`{{- end }}`}}
             {{`{{- if eq .name "local-cluster" }}`}}
             # One site needs no gossip load balancer (AWS's default ELB carries no UDP, and the
             # operator waits for its address); Task 11 switches the hub to an NLB when a peer joins.

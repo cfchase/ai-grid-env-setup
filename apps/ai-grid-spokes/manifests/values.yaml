@@ -5,6 +5,10 @@ gridNs: grid
 gridId: aigrid-demo
 gridNetwork: grid
 modelName: facebook-opt-125m
+# Fixed ClusterIPs (in 172.30.0.0/16) the grid gateways dial, since they refuse in-cluster host names:
+# the model's grid-backend Service (spokes/models) and the provider gateway's (spokes/grid/provider).
+modelBackendIP: 172.30.255.10
+providerIP: 172.30.255.11
 # D8: the hub site's certificate digest, which the gateways pin. It's a fingerprint, not a secret or
 # a host name; it changes on every rebuild: copy it from ConfigMap ai-grid-policies/ai-grid-hub-info.
 hubSiteDigest: "e11b9e876791edb1062b1fe34080ecfbcc75b52e4c8fe2639701fe36088ea5b9"

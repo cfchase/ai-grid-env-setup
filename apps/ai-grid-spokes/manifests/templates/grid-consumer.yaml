@@ -1,0 +1,42 @@
+# Ingress spokes: the consumer gateway MaaS calls (ClusterIP grid-gateway:8080, plain HTTP behind
+# MaaS's authentication). On a combined spoke its one backend is this site's provider gateway over
+# the grid's mutual TLS. A rendered consumer can't name its own site as a backend, so its localSite
+# is maas-edge. Remote sites' backends come with Task 11.
+apiVersion: argoproj.io/v1alpha1
+kind: ApplicationSet
+metadata: { name: ai-grid-grid-consumer, namespace: openshift-gitops }
+spec:
+  goTemplate: true
+  goTemplateOptions: ["missingkey=error"]
+  syncPolicy: { preserveResourcesOnDeletion: true }
+  generators:
+    - clusters:
+        selector:
+          matchLabels: { apps.open-cluster-management.io/acm-cluster: "true", ai-grid/enabled: "true" }
+          matchExpressions: [{ key: ai-grid/role, operator: In, values: [combined] }]
+  template:
+    metadata: { name: 'grid-consumer-{{`{{.name}}`}}' }
+    spec:
+      project: default
+      source:
+        repoURL: ghcr.io/praxis-proxy/charts
+        chart: praxis-gateway
+        targetRevision: "{{ .Values.gridVersion }}"
+        helm:
+          releaseName: grid-gateway
+          values: |
+            fullnameOverride: grid-gateway
+            image: { repository: ghcr.io/praxis-proxy/grid-gateway, tag: v{{ .Values.gridVersion }} }
+            gatewayConfig:
+              localSite: maas-edge
+              model: facebook/opt-125m
+              auth: { mode: none }
+              backends:
+                {{`{{.name}}`}}: { endpoint: "{{ .Values.providerIP }}:8443" }
+            tls: { existingSecret: grid-site-identity, caSecret: grid-ca }
+            service: { type: ClusterIP, port: 8080 }
+      destination: { server: '{{`{{.server}}`}}', namespace: {{ .Values.gridNs }} }
+      syncPolicy:
+        automated: { selfHeal: true }
+        retry: { limit: 10, backoff: { duration: 30s, factor: 2, maxDuration: 10m } }
+        syncOptions: [CreateNamespace=true]
