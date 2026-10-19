@@ -1,8 +1,11 @@
 #!/usr/bin/env bash
 source "$(dirname "$0")/lib.sh"
 h=$HOST
+uat "app ai-grid-spokes"     "Argo CD app not Synced/Healthy: a Helm render error (an unescaped {{ }}) or a sync retry" app ai-grid-spokes
+# Synced only: an inform Policy (tenant-portal-idp until Task 7) is NonCompliant by design, which Argo CD shows as Degraded.
+uat "app ai-grid-policies synced" "a Helm render error (an unescaped {{ }}) in apps/ai-grid-policies" \
+  bash -c "kc $h get applications.argoproj.io ai-grid-policies -n openshift-gitops -o jsonpath='{.status.sync.status}' | grep -qx Synced"
 for a in ai-grid-spokes ai-grid-policies; do
-  uat "app $a"               "Argo CD app not Synced/Healthy: a Helm render error (an unescaped {{ }}, Step 0) or a sync retry" app $a
   uat "$a keeps ACM/AppSet templates" "a {{ ... }} meant for ACM or an ApplicationSet wasn't wrapped as a Helm raw string (Step 0)" \
     bash -c "helm template x apps/$a/manifests --set gitRepo=r --set gitRef=b | grep -qE '\{\{ *(hub|\.name|index|fromSecret|fromConfigMap)'"
 done

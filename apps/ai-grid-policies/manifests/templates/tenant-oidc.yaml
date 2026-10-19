@@ -18,6 +18,9 @@ spec:
                 kind: AITenant
                 metadata: { name: models-as-a-service, namespace: ai-tenants }
                 spec:
+                  # The chart's MaaS gateway; without it the controller looks for a Gateway named
+                  # after the tenant (models-as-a-service) and never deploys maas-api.
+                  gateway: { name: maas-default-gateway }
                   oidc:
                     issuerUrl: {{`'{{hub fromConfigMap "ai-grid-policies" "ai-grid-hub-info" "tenantIssuer" hub}}'`}}
                     clientId: {{`'{{hub fromConfigMap "ai-grid-policies" "ai-grid-hub-info" "tenantClientId" hub}}'`}}
