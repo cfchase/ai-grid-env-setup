@@ -21,11 +21,14 @@ spec:
           releaseName: grid-operator
           values: |
             grid: { id: {{ .Values.gridId }}, network: {{ .Values.gridNetwork }} }
-            swim: { siteName: {{`{{.name}}`}} }
             rbac: { enrollmentNamespace: grid-enrollment }
             {{`{{- if eq .name "local-cluster" }}`}}
+            # One site needs no gossip load balancer (AWS's default ELB carries no UDP, and the
+            # operator waits for its address); Task 11 switches the hub to an NLB when a peer joins.
+            swim: { siteName: local-cluster, service: { type: ClusterIP } }
             enrollment: { enabled: false }
             {{`{{- else }}`}}
+            swim: { siteName: {{`{{.name}}`}} }
             platform: aws
             enrollment: { enabled: true, url: "https://{{ .Values.enrollHost }}" }
             {{`{{- end }}`}}
