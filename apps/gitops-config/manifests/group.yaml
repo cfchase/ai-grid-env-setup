@@ -1,8 +1,0 @@
-# Argo CD's RBAC maps the OpenShift group cluster-admins to role:admin. A demo.redhat.com order
-# has no such group (its admin user is cluster-admin by a direct binding), so list Argo CD admins here.
-apiVersion: user.openshift.io/v1
-kind: Group
-metadata:
-  name: cluster-admins
-users:
-  - admin

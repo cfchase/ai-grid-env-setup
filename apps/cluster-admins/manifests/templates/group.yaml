@@ -1,0 +1,9 @@
+{{- /* Argo CD's RBAC (openshift-gitops ArgoCD .spec.rbac) maps group cluster-admins to role:admin. */ -}}
+apiVersion: user.openshift.io/v1
+kind: Group
+metadata:
+  name: cluster-admins
+users:
+{{- range $user := .Values.cluster_admins }}
+  - {{ $user }}
+{{- end }}

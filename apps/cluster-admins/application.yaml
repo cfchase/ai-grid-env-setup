@@ -1,0 +1,19 @@
+# Lifted from kahowell/ai-grid-tenant cluster-config/application.yaml (55a3879), with permission.
+# Changed: one list drives both cluster-admin and Argo CD admin (group cluster-admins), and it
+# lives in this chart's values.yaml, so the root ApplicationSet's single source is enough.
+metadata:
+  name: cluster-admins
+  namespace: openshift-gitops
+spec:
+  project: default
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: openshift-gitops
+  syncPolicy:
+    automated:
+      # Removing a user from values.yaml revokes their access on the next sync.
+      prune: true
+      selfHeal: true
+    retry:
+      limit: 10
+      backoff: { duration: 30s, factor: 2, maxDuration: 10m }

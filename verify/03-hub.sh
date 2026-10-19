@@ -6,13 +6,13 @@ uat "gitops ready"         "GitOps operator not installed: kc host get csv -n op
   kc $h get argocd openshift-gitops -n openshift-gitops
 uat "root ApplicationSet"  "bootstrap/00-gitops.sh not run: the root ApplicationSet apps creates one app per apps/*/application.yaml" \
   kc $h get applicationset apps -n openshift-gitops
-for a in gitops-config acm maas-db ai-grid-policies; do
+for a in gitops-config cluster-admins acm maas-db ai-grid-policies; do
   uat "app $a"            "Argo CD app not Synced/Healthy: open it in the Argo CD UI, or kc host get application $a -n openshift-gitops -o yaml" app $a
 done
 uat "argo cluster-admin"   "bootstrap/00-gitops.sh didn't apply bootstrap/gitops-admin.yaml" \
   bash -c "kc $h auth can-i '*' '*' --all-namespaces --as=system:serviceaccount:openshift-gitops:openshift-gitops-argocd-application-controller | grep -qx yes"
-uat "argo admin group"   "group cluster-admins lacks the users in apps/gitops-config/manifests/group.yaml: Argo CD shows nothing to them" \
-  bash -c "for u in \$(yq '.users[]' apps/gitops-config/manifests/group.yaml); do kc $h get group cluster-admins -o json | jq -e --arg u \"\$u\" '.users | index(\$u)' >/dev/null || exit 1; done"
+uat "argo admin group"   "group cluster-admins or binding cluster-admin-<user> missing for a user in apps/cluster-admins/manifests/values.yaml (app cluster-admins)" \
+  bash -c "for u in \$(yq '.cluster_admins[]' apps/cluster-admins/manifests/values.yaml); do kc $h get group cluster-admins -o json | jq -e --arg u \"\$u\" '.users | index(\$u)' >/dev/null && kc $h get clusterrolebinding cluster-admin-\$u >/dev/null || exit 1; done"
 uat "praxis OCI repo"      "Argo CD app gitops-config didn't create Secret praxis-charts" kc $h get secret praxis-charts -n openshift-gitops
 uat "ACM running"          "MultiClusterHub still installing (about 15 minutes), or short of CPU: kc host get mch -n open-cluster-management -o yaml" \
   bash -c "kc $h get multiclusterhub multiclusterhub -n open-cluster-management -o jsonpath='{.status.phase}' | grep -qx Running"
