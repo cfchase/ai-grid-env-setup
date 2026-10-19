@@ -18,10 +18,10 @@ for s in $SPOKES; do
   uat "$s grid operator app" "chart pull from ghcr.io (repository praxis-charts) or a values error" app grid-operator-$s
   uat "$s operator ready"    "no grid-site-identity in $GRID_NS (enrollment, Task 4; invite, Task 11)" \
     kc $s rollout status deploy/grid-operator -n $GRID_NS --timeout=5s
-  # A site goes Discovered -> Connecting -> Active only once it has a provider gateway to probe (Task 6).
-  kc $s get deploy grid-provider -n $GRID_NS >/dev/null 2>&1 && \
-  uat "$s sites Active"      "gossip not converged: kc $s logs deploy/grid-operator -n $GRID_NS" \
-    bash -c "! kc $s get gridsites -o jsonpath='{range .items[*]}{.status.phase}{\"\\n\"}{end}' | grep -v Active"
+  # Peer sites must be Active. A site's own record stays Discovered in a one-site grid: v0.2.0 moves
+  # a site to Active once gossip gives it an egress address, which needs a peer (Task 11).
+  uat "$s peer sites Active" "gossip not converged: kc $s logs deploy/grid-operator -n $GRID_NS" \
+    bash -c "! kc $s get gridsites -o jsonpath='{range .items[*]}{.metadata.name} {.status.phase}{\"\\n\"}{end}' | grep -v '^$s ' | grep -v ' Active$' | grep ."
   uat "$s ai-grid-ready"     "DSC not Ready or the grid operator not running on $s (D3)" pol $s ai-grid-ready
 done
 summary
