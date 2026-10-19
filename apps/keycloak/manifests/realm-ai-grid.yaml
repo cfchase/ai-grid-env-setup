@@ -16,8 +16,6 @@ spec:
     groups:
       - { name: org1-group1 }
       - { name: org2-group1 }
-    userProfile:
-      unmanagedAttributePolicy: ADMIN_EDIT
     clientScopes:
       - name: maas
         protocol: openid-connect

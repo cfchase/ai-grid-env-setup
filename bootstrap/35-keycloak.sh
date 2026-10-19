@@ -10,6 +10,8 @@ if [[ $(kc $HOST get keycloak maas-keycloak -n $ns -o jsonpath='{.spec.hostname.
   kc $HOST patch keycloak maas-keycloak -n $ns --type merge -p "{\"spec\":{\"hostname\":{\"hostname\":\"https://$kchost\"}}}"
   kc $HOST wait keycloak/maas-keycloak -n $ns --for=condition=Ready --timeout=10m
 fi
+# Ready can be reported before a restarted pod serves; wait until the realm answers.
+for _ in $(seq 1 60); do curl -fsS -o /dev/null "https://$kchost/realms/$realm/.well-known/openid-configuration" && break; sleep 10; done
 au=$(kc $HOST get secret maas-keycloak-initial-admin -n $ns -o jsonpath='{.data.username}' | base64 -d)
 ap=$(kc $HOST get secret maas-keycloak-initial-admin -n $ns -o jsonpath='{.data.password}' | base64 -d)
 tok=$(curl -fsS -d grant_type=password -d client_id=admin-cli -d username="$au" --data-urlencode password="$ap" \
@@ -17,6 +19,9 @@ tok=$(curl -fsS -d grant_type=password -d client_id=admin-cli -d username="$au" 
 [[ -n $tok && $tok != null ]] || die "Keycloak admin login failed"
 api() { curl -fsS -H "Authorization: Bearer $tok" -H 'Content-Type: application/json' "$@"; }
 base="https://$kchost/admin/realms/$realm"
+# The realm import doesn't apply a user profile, and the default profile drops unknown
+# attributes: let admins set unmanaged ones such as maas_orgs (feeds the MaaS organization claim).
+api "$base/users/profile" | jq '.unmanagedAttributePolicy = "ADMIN_EDIT"' | api -X PUT "$base/users/profile" -d @- >/dev/null
 kc $HOST get secret ai-grid-test-users -n $ns >/dev/null 2>&1 || kc $HOST create secret generic ai-grid-test-users -n $ns >/dev/null
 # user org group ("-" = no group, so in no subscription)
 while read -r u org grp; do

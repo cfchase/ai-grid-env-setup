@@ -42,8 +42,9 @@ uat "hub tenant issuer"      "bootstrap/35-keycloak.sh didn't write ConfigMap ai
   bash -c "kc $h get configmap ai-grid-hub-info -n ai-grid-policies -o jsonpath='{.data.tenantIssuer}' | grep -q '/realms/ai-grid$'"
 claims() { local pw; pw=$(kc $h get secret ai-grid-test-users -n $KEYCLOAK_NS -o jsonpath="{.data.$1}" | base64 -d)
   curl -fsS -d grant_type=password -d client_id=maas-cli -d scope=openid -d username=$1 --data-urlencode password="$pw" \
-    https://$kchost/realms/ai-grid/protocol/openid-connect/token | jq -r .access_token | cut -d. -f2 | base64 -d 2>/dev/null; }
-export -f claims
+    https://$kchost/realms/ai-grid/protocol/openid-connect/token | jq -r .access_token | cut -d. -f2 | tr '_-' '/+' \
+    | { read -r t; while (( ${#t} % 4 )); do t="$t="; done; printf '%s' "$t"; } | base64 -d 2>/dev/null; }
+export -f claims; export h kchost   # bash -c subshells see only exported names
 uat "alice token: org1"      "the maas orgs mapper emits another shape (Step 2's note), or alice isn't an org1 member" \
   bash -c "claims alice | jq -e '.\"https://redhat.com/maas/orgs\" | length == 1 and .[0].organization_name == \"org1\" and (.[0].organization_id | test(\"^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$\"))'"
 uat "alice token: groups"    "the groups mapper emits full paths (/org1-group1) or alice isn't in org1-group1" \
