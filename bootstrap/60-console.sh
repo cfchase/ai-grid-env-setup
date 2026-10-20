@@ -39,7 +39,9 @@ unset pw
 redirect="https://$host/oauth2/callback"
 cs=$(kc $HOST get secret $name-oauth -n $ns -o jsonpath='{.data.OAUTH2_PROXY_CLIENT_SECRET}' 2>/dev/null | base64 -d || true)
 ck=$(kc $HOST get secret $name-oauth -n $ns -o jsonpath='{.data.OAUTH2_PROXY_COOKIE_SECRET}' 2>/dev/null | base64 -d || true)
-CS=${cs:-$(openssl rand -hex 32)} CK=${ck:-$(openssl rand -base64 32 | tr -d '\n')}
+# kube-auth-proxy takes the cookie secret as raw bytes (16, 24 or 32), not base64.
+[[ ${#ck} == 32 ]] || ck=""
+CS=${cs:-$(openssl rand -hex 32)} CK=${ck:-$(openssl rand -hex 16)}
 CS=$CS jq -n --arg n $name --arg r "$redirect" '{apiVersion:"oauth.openshift.io/v1", kind:"OAuthClient",
   metadata:{name:$n}, grantMethod:"auto", redirectURIs:[$r], secret:env.CS}' | kc $HOST apply -f - >/dev/null
 CS=$CS CK=$CK jq -n --arg n $name --arg r "$redirect" '{apiVersion:"v1", kind:"Secret",
