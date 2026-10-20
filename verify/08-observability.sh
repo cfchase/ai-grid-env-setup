@@ -11,6 +11,8 @@ uat "S4 API not exposed"     "a Route or the web UI port (5000) reaches S4 from 
   bash -c "[ -z \"\$(kc $h get route -n $ns -o name | grep s4)\" ] && ! kc $h get svc s4 -n $ns -o jsonpath='{.spec.ports[*].port}' | grep -qw 5000"
 uat "thanos object storage" "Job s4-credentials didn't render it: kc host logs job/s4-credentials -n $ns" \
   bash -c "kc $h get secret thanos-object-storage -n $ns -o jsonpath='{.data.thanos\.yaml}' | base64 -d | grep -q 'bucket: thanos'"
+uat "S4 keys kept, no copies" "s4-credentials lost its keys (an Argo CD apply over the Job's data?) or carries a last-applied copy" \
+  bash -c "kc $h get secret s4-credentials -n $ns -o json | jq -e '(.data | has(\"AWS_ACCESS_KEY_ID\") and has(\"AWS_SECRET_ACCESS_KEY\")) and (.metadata.annotations[\"kubectl.kubernetes.io/last-applied-configuration\"] == null)'"
 uat "MCO ready"              "kc host get multiclusterobservability observability -o yaml: the not-Ready condition names the cause" \
   bash -c "kc $h get multiclusterobservability observability -o jsonpath='{.status.conditions[?(@.type==\"Ready\")].status}' | grep -qx True"
 for sts in observability-thanos-compact observability-thanos-store-shard-0 observability-thanos-receive-default; do

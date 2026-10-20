@@ -1,13 +1,31 @@
 # Two Jobs, rerun on every sync and safe to rerun:
 #   s4-credentials: once per hub, generates S4's keys and renders Thanos's thanos-object-storage from them.
 #   thanos-bucket:  creates bucket "thanos" in S4.
-# Keys travel through files and stdin, never argv or logs.
+# Keys travel through stdin and environment variables, never argv, logs, or a last-applied annotation.
+# Argo CD creates both Secrets empty; the Job may get and patch only those two.
+apiVersion: v1
+kind: Secret
+metadata:
+  name: s4-credentials
+  namespace: open-cluster-management-observability
+  annotations: { argocd.argoproj.io/sync-wave: "-2" }
+type: Opaque
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: thanos-object-storage
+  namespace: open-cluster-management-observability
+  annotations: { argocd.argoproj.io/sync-wave: "-2" }
+type: Opaque
+---
 apiVersion: v1
 kind: ServiceAccount
 metadata:
   name: observability-setup
   namespace: open-cluster-management-observability
   annotations: { argocd.argoproj.io/sync-wave: "-2" }
+automountServiceAccountToken: false
 ---
 apiVersion: rbac.authorization.k8s.io/v1
 kind: Role
@@ -18,7 +36,8 @@ metadata:
 rules:
   - apiGroups: [""]
     resources: [secrets]
-    verbs: [get, create, patch]
+    resourceNames: [s4-credentials, thanos-object-storage]
+    verbs: [get, patch]
 ---
 apiVersion: rbac.authorization.k8s.io/v1
 kind: RoleBinding
@@ -43,6 +62,7 @@ spec:
   template:
     spec:
       serviceAccountName: observability-setup
+      automountServiceAccountToken: true
       restartPolicy: Never
       containers:
         - name: credentials
@@ -53,41 +73,25 @@ spec:
             - -ec
             - |
               ns=open-cluster-management-observability
-              if oc get secret s4-credentials -n $ns >/dev/null 2>&1; then
-                echo "s4-credentials exists; keeping it (S4 created its user from it)"
+              last=kubectl.kubernetes.io/last-applied-configuration
+              id=$(oc get secret s4-credentials -n $ns -o jsonpath='{.data.AWS_ACCESS_KEY_ID}' | base64 -d)
+              key=$(oc get secret s4-credentials -n $ns -o jsonpath='{.data.AWS_SECRET_ACCESS_KEY}' | base64 -d)
+              if [ -n "$id" ] && [ -n "$key" ]; then
+                echo "s4-credentials has keys; keeping them (S4 created its user from them)"
               else
                 gen() { tr -dc 'A-Za-z0-9' </dev/urandom | head -c "$1"; }
                 id=$(gen 20); key=$(gen 40)
-                oc apply -n $ns -f - <<YAML
-              apiVersion: v1
-              kind: Secret
-              metadata: { name: s4-credentials }
-              type: Opaque
-              stringData:
-                AWS_ACCESS_KEY_ID: "$id"
-                AWS_SECRET_ACCESS_KEY: "$key"
-              YAML
-                echo "s4-credentials created"
+                printf '{"stringData":{"AWS_ACCESS_KEY_ID":"%s","AWS_SECRET_ACCESS_KEY":"%s"}}' "$id" "$key" \
+                  | oc patch secret s4-credentials -n $ns --type merge --patch-file /dev/stdin >/dev/null
+                echo "s4-credentials keys set"
               fi
-              # Render Thanos's config from the stored keys (also repairs a deleted thanos-object-storage).
-              id=$(oc get secret s4-credentials -n $ns -o jsonpath='{.data.AWS_ACCESS_KEY_ID}' | base64 -d)
-              key=$(oc get secret s4-credentials -n $ns -o jsonpath='{.data.AWS_SECRET_ACCESS_KEY}' | base64 -d)
-              oc apply -n $ns -f - <<YAML
-              apiVersion: v1
-              kind: Secret
-              metadata: { name: thanos-object-storage }
-              type: Opaque
-              stringData:
-                thanos.yaml: |
-                  type: s3
-                  config:
-                    bucket: thanos
-                    endpoint: s4.$ns.svc:7480
-                    insecure: true
-                    access_key: "$id"
-                    secret_key: "$key"
-              YAML
+              # Thanos's config from the stored keys (also repairs an emptied thanos-object-storage).
+              cfg=$(printf 'type: s3\nconfig:\n  bucket: thanos\n  endpoint: s4.%s.svc:7480\n  insecure: true\n  access_key: "%s"\n  secret_key: "%s"\n' "$ns" "$id" "$key" | base64 -w0)
+              printf '{"data":{"thanos.yaml":"%s"}}' "$cfg" \
+                | oc patch secret thanos-object-storage -n $ns --type merge --patch-file /dev/stdin >/dev/null
               echo "thanos-object-storage rendered"
+              # Earlier versions applied these with oc apply, which kept a copy in this annotation.
+              oc annotate secret s4-credentials thanos-object-storage -n $ns $last- >/dev/null 2>&1 || true
 ---
 apiVersion: batch/v1
 kind: Job

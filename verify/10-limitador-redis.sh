@@ -17,6 +17,8 @@ for s in $SPOKES; do
     bash -c "m=\$(kc $s get pods -n limitador-redis -l redis-role=master -o name | head -1); [ \$(kc $s exec -n limitador-redis \$m -c limitador-redis -- sh -c 'REDISCLI_AUTH=\"\$REDIS_PASSWORD\" redis-cli dbsize') -gt 0 ]"
   uat "$s redis needs a password" "Redis answers without auth: RedisReplication's redisSecret (Secret limitador-redis-auth, Job limitador-redis-auth)" \
     bash -c "m=\$(kc $s get pods -n limitador-redis -l redis-role=master -o name | head -1); kc $s exec -n limitador-redis \$m -c limitador-redis -- redis-cli ping 2>&1 | grep -q NOAUTH"
+  uat "$s redis password kept, no copies" "limitador-redis-auth or limitador-redis-url lost its data, or carries a last-applied copy" \
+    bash -c "kc $s get secret limitador-redis-auth -n limitador-redis -o json | jq -e '(.data.password | length > 0) and (.metadata.annotations[\"kubectl.kubernetes.io/last-applied-configuration\"] == null)' && kc $s get secret limitador-redis-url -n kuadrant-system -o json | jq -e '(.data.URL | length > 0) and (.metadata.annotations[\"kubectl.kubernetes.io/last-applied-configuration\"] == null)'"
   uat "$s redis exported"      "ServiceExport limitador-redis-master not Valid: Submariner's Lighthouse (verify/09)" \
     bash -c "kc $s get serviceexport limitador-redis-master -n limitador-redis -o jsonpath='{.status.conditions[?(@.type==\"Valid\")].status}' | grep -qx True"
 done
