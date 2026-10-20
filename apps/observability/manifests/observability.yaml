@@ -1,0 +1,43 @@
+apiVersion: observability.open-cluster-management.io/v1beta2
+kind: MultiClusterObservability
+metadata:
+  name: observability
+  annotations: { argocd.argoproj.io/sync-wave: "3" }
+spec:
+  instanceSize: minimal
+  observabilityAddonSpec: {}
+  storageConfig:
+    metricObjectStorage: { name: thanos-object-storage, key: thanos.yaml }
+  advanced:
+    retentionConfig:
+      retentionResolutionRaw: 24h
+      retentionResolution5m: 7d
+      retentionResolution1h: 14d
+    # The default of 6 receive replicas makes node drains hard.
+    receive: { replicas: 2 }
+  capabilities:
+    platform:
+      metrics:
+        default: { enabled: true }
+        ui: { enabled: true }
+    userWorkloads:
+      metrics:
+        default: { enabled: true }
+---
+# OpenShift AI's metrics, federated from each spoke's data-science-collector (DSCI monitoring,
+# spokes/platform/values/common.yaml) by the spokes' metrics collectors.
+apiVersion: monitoring.rhobs/v1alpha1
+kind: ScrapeConfig
+metadata:
+  name: rhai-metrics
+  namespace: open-cluster-management-observability
+  labels: { app.kubernetes.io/component: user-workload-metrics-collector }
+  annotations: { argocd.argoproj.io/sync-wave: "4" }
+spec:
+  jobName: rhai-metrics
+  metricsPath: /metrics
+  params:
+    match[]: ['{__name__=~".*"}']
+  scheme: HTTP
+  staticConfigs:
+    - targets: [data-science-collector-collector.redhat-ods-monitoring.svc:8890]
