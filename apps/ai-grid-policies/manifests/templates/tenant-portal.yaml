@@ -71,6 +71,9 @@ spec:
                             - --cookie-httponly=true
                             - --cookie-samesite=lax
                           env:
+                            # The proxy insists on a client secret; Keycloak ignores the one a public
+                            # client sends, so this is a placeholder, not a credential.
+                            - { name: OAUTH2_PROXY_CLIENT_SECRET, value: public-client }
                             - name: OAUTH2_PROXY_COOKIE_SECRET
                               valueFrom: { secretKeyRef: { name: maas-portal-proxy, key: cookieSecret } }
                           ports:
