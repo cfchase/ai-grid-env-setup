@@ -41,6 +41,11 @@ spec:
   metricsPath: /metrics
   params:
     match[]: ['{__name__=~".*"}']
-  scheme: HTTP
+  # The exporter serves TLS with an OpenShift service CA certificate; every namespace has that CA
+  # in ConfigMap openshift-service-ca.crt.
+  scheme: HTTPS
+  tlsConfig:
+    ca: { configMap: { name: openshift-service-ca.crt, key: service-ca.crt } }
+    serverName: data-science-collector-prometheus.redhat-ods-monitoring.svc
   staticConfigs:
     - targets: [data-science-collector-prometheus.redhat-ods-monitoring.svc:8889]
