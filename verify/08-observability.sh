@@ -28,7 +28,7 @@ for s in $SPOKES; do
   uat "$s platform metrics in thanos" "the metrics collector on $s isn't forwarding: kc $s logs deploy/metrics-collector-deployment -n open-cluster-management-addon-observability" \
     bash -c "q 'count(up{cluster=\"$s\"})' | jq -e '.data.result | length > 0'"
   uat "$s OpenShift AI monitoring" "DSCI monitoring not Managed (spokes/platform/values/common.yaml), or its collector isn't up: kc $s get dscinitialization -o yaml" \
-    kc $s get svc data-science-collector-monitoring -n redhat-ods-monitoring
+    kc $s get svc data-science-collector-prometheus -n redhat-ods-monitoring
   uat "$s rhai-metrics scrape config" "Policy rhai-metrics-hub didn't add rhai-metrics to ClusterManagementAddOn multicluster-observability-addon, so ACM never sends it to $s" \
     kc $s get scrapeconfig rhai-metrics -n open-cluster-management-agent-addon
   uat "$s OpenShift AI metrics in thanos" "ScrapeConfig rhai-metrics not distributed, or NetworkPolicy allow-acm-rhai-metrics missing on $s (Policy rhai-metrics)" \

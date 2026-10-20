@@ -12,7 +12,7 @@ spec:
         spec:
           severity: low
           # ACM's metrics collector (namespace open-cluster-management-agent-addon) federates OpenShift
-          # AI's collector on 8890 for the hub's ScrapeConfig rhai-metrics. NetworkPolicies add up, so
+          # AI's collector on 8889 for the hub's ScrapeConfig rhai-metrics. NetworkPolicies add up, so
           # this sits beside the operator's own policy without being reconciled away.
           object-templates:
             - complianceType: mustonlyhave
@@ -28,7 +28,7 @@ spec:
                   policyTypes: [Ingress]
                   ingress:
                     - from: [{ namespaceSelector: { matchLabels: { kubernetes.io/metadata.name: open-cluster-management-agent-addon } } }]
-                      ports: [{ port: 8890, protocol: TCP }]
+                      ports: [{ port: 8889, protocol: TCP }]
 ---
 apiVersion: policy.open-cluster-management.io/v1
 kind: PlacementBinding

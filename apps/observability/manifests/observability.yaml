@@ -43,4 +43,4 @@ spec:
     match[]: ['{__name__=~".*"}']
   scheme: HTTP
   staticConfigs:
-    - targets: [data-science-collector-monitoring.redhat-ods-monitoring.svc:8890]
+    - targets: [data-science-collector-prometheus.redhat-ods-monitoring.svc:8889]
