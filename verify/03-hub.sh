@@ -43,8 +43,8 @@ uat "realm ai-grid discovery" "Route keycloak missing, or KeycloakRealmImport ai
 uat "hub tenant issuer"      "bootstrap/35-keycloak.sh didn't write ConfigMap ai-grid-hub-info" \
   bash -c "kc $h get configmap ai-grid-hub-info -n ai-grid-policies -o jsonpath='{.data.tenantIssuer}' | grep -q '/realms/ai-grid$'"
 claims() { local pw; pw=$(kc $h get secret ai-grid-test-users -n $KEYCLOAK_NS -o jsonpath="{.data.$1}" | base64 -d)
-  curl -fsS -d grant_type=password -d client_id=maas-cli -d scope=openid -d username=$1 --data-urlencode password="$pw" \
-    https://$kchost/realms/ai-grid/protocol/openid-connect/token | jq -r .access_token | cut -d. -f2 | tr '_-' '/+' \
+  printf %s "$pw" | curl -fsS -d grant_type=password -d client_id=maas-cli -d scope=openid --data-urlencode "username=$1" \
+    --data-urlencode password@- https://$kchost/realms/ai-grid/protocol/openid-connect/token | jq -r .access_token | cut -d. -f2 | tr '_-' '/+' \
     | { read -r t; while (( ${#t} % 4 )); do t="$t="; done; printf '%s' "$t"; } | base64 -d 2>/dev/null; }
 export -f claims; export h kchost   # bash -c subshells see only exported names
 uat "alice token: org1"      "the maas orgs mapper emits another shape (Step 2's note), or alice isn't an org1 member" \
@@ -53,14 +53,17 @@ uat "alice token: groups"    "the groups mapper emits full paths (/org1-group1) 
   bash -c "claims alice | jq -e '.groups | index(\"org1-group1\")'"
 uat "dave token: no groups"  "dave was given a group; he must stay in no subscription" \
   bash -c "claims dave | jq -e '(.groups // []) | length == 0'"
+# Keycloak answers 400 both for an unknown client and for a bad redirect URI; only the page text differs.
+client_gone() { curl -s "https://$kchost/realms/ai-grid/protocol/openid-connect/auth?client_id=$1&response_type=code&scope=openid&redirect_uri=https%3A%2F%2Fx" | grep -q 'Client not found'; }
+export -f client_gone; export kchost
 uat "no maas-portal client"   "the confidential client from an earlier portal design is left: rerun bootstrap/36-portal-clients.sh" \
-  bash -c "curl -s -o /dev/null -w '%{http_code}' 'https://$kchost/realms/ai-grid/protocol/openid-connect/auth?client_id=maas-portal&response_type=code&scope=openid&redirect_uri=https%3A%2F%2Fx' | grep -qx 400"
+  client_gone maas-portal
 for s in $SPOKES; do
   [[ $(role_of $s) == inference ]] && continue
   uat "portal redirect $s"   "client maas-cli rejects $s's portal callback: rerun bootstrap/36-portal-clients.sh after adding a spoke or a domain change" \
     bash -c "d=\$(kc $s get ingresses.config cluster -o jsonpath='{.spec.domain}'); \
       curl -s -o /dev/null -w '%{http_code}' \"https://$kchost/realms/ai-grid/protocol/openid-connect/auth?client_id=maas-cli&response_type=code&scope=openid&code_challenge_method=S256&code_challenge=E9Melhoa2OwvFrEMTJguCHaoeK1t8URWbuGJSstw-cM&redirect_uri=https%3A%2F%2Fmaas.\$d%2Foauth2%2Fcallback\" | grep -qx 200"
   uat "no login client ocp-$s" "a cluster-login client from the old portal design is left: rerun bootstrap/36-portal-clients.sh" \
-    bash -c "curl -s -o /dev/null -w '%{http_code}' 'https://$kchost/realms/ai-grid/protocol/openid-connect/auth?client_id=ocp-$s&response_type=code&scope=openid&redirect_uri=https%3A%2F%2Fx' | grep -qx 400"
+    client_gone ocp-$s
 done
 summary

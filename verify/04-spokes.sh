@@ -12,6 +12,11 @@ for a in ai-grid-spokes ai-grid-policies; do
     bash -c "! perl -0777 -ne 's/\\{\\{\\x60.*?\\x60\\}\\}//gs; print \"\$ARGV\\n\" if /\\{\\{-?\\s*(\\.name|\\.server|\\.metadata|index |hub|fromSecret|fromConfigMap|lookup|randAlphaNum|\\.ManagedClusterName)/' apps/$a/manifests/templates/*.yaml | grep ."
 
 done
+# Secrets never ride on argv, where ps shows them: no curl argument built from a token or password.
+no_argv_secrets() { ! grep -n -E -- "-H \"Authorization: Bearer \\\$|-H 'Authorization: Bearer \\\$|password=\"\\\$" "$@"; }
+export -f no_argv_secrets
+uat "no secrets on argv" "a script passes a token or password as a curl argument: pipe it (--data-urlencode password@-) or use -H @<(printf ...)" \
+  no_argv_secrets bootstrap/*.sh verify/*.sh hack/*.sh
 for s in $SPOKES; do
   r=$(role_of $s)
   uat "$s labelled $r"        "run bootstrap/40-spoke.sh (stands in for the console's Enroll)" \
@@ -33,7 +38,7 @@ for s in $SPOKES; do
     uat "$s maas-db policy"   "CNPG Secret maas-db-app missing on the hub (Task 2), or the hub template didn't resolve" \
       bash -c "kc $h get policy maas-db.maas-db -n $s -o jsonpath='{.status.compliant}' | grep -qx Compliant"
     uat "$s tenant-oidc policy" "hub ConfigMap ai-grid-hub-info missing (Task 3), or AITenant not created yet" pol $s tenant-oidc
-    uat "$s tenant-portal policy" "still inform, hub Secret maas-portal-oidc missing (bootstrap/36-portal-clients.sh), or a template error: kc host get policy ai-grid-policies.tenant-portal -n $s -o yaml" pol $s tenant-portal
+    uat "$s tenant-portal policy" "still inform, ConfigMap ai-grid-hub-info lacks tenantIssuer or tenantClientId (bootstrap/35-keycloak.sh), or a template error: kc host get policy ai-grid-policies.tenant-portal -n $s -o yaml" pol $s tenant-portal
     uat "$s maas-api ready"   "maas-db-config not on the spoke, or the hub database unreachable from it (kc $s logs deploy/maas-api -n redhat-ai-gateway-infra)" \
       kc $s rollout status deploy/maas-api -n redhat-ai-gateway-infra --timeout=5s
     maas=$(maas_url $s)

@@ -14,10 +14,11 @@ fi
 for _ in $(seq 1 60); do curl -fsS -o /dev/null "https://$kchost/realms/$realm/.well-known/openid-configuration" && break; sleep 10; done
 au=$(kc $HOST get secret maas-keycloak-initial-admin -n $ns -o jsonpath='{.data.username}' | base64 -d)
 ap=$(kc $HOST get secret maas-keycloak-initial-admin -n $ns -o jsonpath='{.data.password}' | base64 -d)
-tok=$(curl -fsS -d grant_type=password -d client_id=admin-cli -d username="$au" --data-urlencode password="$ap" \
-  "https://$kchost/realms/master/protocol/openid-connect/token" | jq -r .access_token); unset ap
+# Secrets reach curl through a pipe or a file descriptor, never argv (where ps shows them).
+tok=$(printf %s "$ap" | curl -fsS -d grant_type=password -d client_id=admin-cli --data-urlencode "username=$au" \
+  --data-urlencode password@- "https://$kchost/realms/master/protocol/openid-connect/token" | jq -r .access_token); unset ap
 [[ -n $tok && $tok != null ]] || die "Keycloak admin login failed"
-api() { curl -fsS -H "Authorization: Bearer $tok" -H 'Content-Type: application/json' "$@"; }
+api() { curl -fsS -H @<(printf 'Authorization: Bearer %s\n' "$tok") -H 'Content-Type: application/json' "$@"; }
 base="https://$kchost/admin/realms/$realm"
 # The realm import doesn't apply a user profile, and the default profile drops unknown
 # attributes: let admins set unmanaged ones such as maas_orgs (feeds the MaaS organization claim).
