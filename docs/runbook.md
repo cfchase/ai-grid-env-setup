@@ -24,6 +24,49 @@ oc adm policy add-cluster-role-to-user cluster-admin <user>              # clust
 Remove them with `oc adm groups remove-users cluster-admins <user>` and
 `oc adm policy remove-cluster-role-from-user cluster-admin <user>`.
 
+## Build, rebuild, and tear down
+
+Prerequisites: `oc`, `helm`, `jq`, `curl` and `openssl`; a cluster-admin login to the hub in the file
+`HOST_KUBECONFIG` names; and a `quay.io/rhoai` login in podman (`hack/quay-env.sh` copies it into the
+git-ignored `.env`). demo.redhat.com's OpenShift order already has cert-manager and the Red Hat build of
+Keycloak operator; the GitOps operator subscribes to channel `latest`, unpinned; the grid's fixed
+backend addresses (`modelBackendIP`, `providerIP`) assume the default `172.30.0.0/16` service network.
+
+| Step | Command | What happens | Time on `aio` |
+|---|---|---|---|
+| 1 | `bash hack/quay-env.sh` | Writes `.env` (once per machine) | seconds |
+| 2 | `make hub` | GitOps, then Argo CD builds the hub from `apps/*` (ACM, maas-db, Keycloak, grid enrollment, Policies); Keycloak users and the hub facts ConfigMap | first build not timed (it ran in stages during Tasks 2–4); a rerun 17 s |
+| 3 | commit `hubSiteDigest` | `50-grid-hub-info.sh` prints it; a new hub has a new grid CA (D8) | – |
+| 4 | `make spokes` | Labels each spoke; ACM delivers the pull secret, catalog, OpenShift AI, MaaS, the grid, the model and tenant intent; adds portal callbacks | about 20 min to DSC Ready (Task 5); the rest not timed |
+| 5 | `make verify` | 90 checks across six scripts | about 2 min |
+
+`make all` is `hub` then `spokes`. Every script is safe to rerun (`make all` on the built hub,
+2026-10-19: no changes, `make verify` ALL PASS).
+
+**Teardown** (`make teardown`) stops delivery and leaves what it installed: it unlabels the spokes,
+deletes the root ApplicationSet, then everything the delivery apps `ai-grid-spokes` and
+`ai-grid-policies` created (found by Argo CD's tracking annotation), then those apps. No Application
+has a resources finalizer, every ApplicationSet preserves resources on deletion, and ACM Policies
+don't prune, so OpenShift AI, the grid and the hub services keep running. Not yet run on `aio`.
+
+**Unlabel drill** (Task 8 Step 4, 2026-10-19): removing `ai-grid/enabled` from `local-cluster`
+removed its six delivery Applications within 21 s and its Policies; the DSC stayed Ready and the grid
+gateways, model and maas-api kept running. Relabelling restored all six Applications in 31 s and
+`make verify` passed. The first run failed: Argo CD's cluster Secret keeps the labels it was created
+with, so the Applications stayed. The spoke ApplicationSets now take membership from ACM's placement
+`ai-grid-spokes` (a `clusterDecisionResource` matrix). The role still comes from the cluster Secret's
+labels, so changing a spoke's role may need its Secret refreshed (untested).
+
+**Rebuild drill** (Task 8 Step 5): not run. It needs a fresh demo.redhat.com order and `build` merged
+to `ai-grid-cloud/ai-grid-env-setup` `main`.
+
+**Expiry.** The `aio` order expires 2026-11-27. Extend it from the order's page in demo.redhat.com
+before then (how long an extension lasts is set there; unverified).
+
+**Adding a spoke** is Task 11 of the plan (import, labels, invite) and untested here.
+
+**Demo script**: waits for the provider console (Task 9, on hold).
+
 ## UAT log
 
 | Date | Checkpoint | `make verify` | Pair UAT result | Notes |
@@ -34,7 +77,7 @@ Remove them with `oc adm groups remove-users cluster-admins <user>` and
 | 2026-10-19 | 4. Spoke delivery (Task 5) | ALL PASS | **Pending** (Chris away) | Labelling local-cluster provisioned it through ACM: Placements, GitOpsCluster, Policies (pull secret, nightly catalog, maas-db, tenant OIDC, maas-route, ai-grid-ready Compliant), OpenShift AI 3.6 DSC Ready in ~20 min, MaaS health 200 at maas.<apps domain>, grid operator running. Pull-secret path: ACM Policy (D4), after fixing ACM auto-encryption of hub fromSecret. |
 | 2026-10-19 | 5. Models and tenant intent (Task 6) | ALL PASS | **Pending** (Chris away) | opt-125m Ready on local-cluster (with a minimal chat template); grid path consumer → mTLS → provider → model returns 200 for chat; MaaS ExternalProvider/ExternalModel/MaaSModelRef Ready, org1-group1 subscription and auth policy Active. One InferenceProvider (ours). PR 966: downstream rhoai-3.6 has diverged from the merge and the installed controller has no InferenceProvider rights, so the nightly doesn't publish providers (as expected). |
 | 2026-10-19 | 6. Tenant end to end (Task 7, Steps 1-3) | ALL PASS (06-tenant-e2e) | **Pending** (Chris away) | alice: Keycloak (hub) → MaaS on local-cluster (key minted) → MaaS gateway → grid consumer (TLS) → mTLS → provider → vLLM: 200 with text. dave (org1, no group) refused, but MaaS answers 500 AUTH_FAILURE rather than 403 (upstream bug to report). Portal sign-in (Steps 5-6) not run: enforcing tenant-portal-idp edits the hub's own OAuth and must wait for Chris. |
-| 2026-10-19 | 7. Tenant portal sign-in (Task 7, Steps 5-6) | ALL PASS (06-tenant-portal) | **Pending** (Chris away) | D6 as re-decided: alice opens `https://maas.<apps domain>/maas-consumer-portal/`, is sent to hub Keycloak realm ai-grid, signs in (user name, then password), and the portal opens; the cluster's OpenShift login lists only `rhbk`. Policy `tenant-portal` delivers an oauth2-proxy (namespace `aigrid-portal-auth`), two HTTPRoutes on the MaaS gateway, and Authorino policies. The proxy uses the public tenant client `maas-cli` with PKCE, because MaaS accepts one client per tenant. Cross-origin cookie writes are refused (CSRF fix, RED→GREEN). Gaps: maas-api can't name its external URL without a listener host name, so after a `maas-ui` restart the portal's model list answers 503; the portal's Kubernetes-backed calls (user, namespaces) are Unauthorized for Keycloak tokens. |
+| 2026-10-19 | 7. Tenant portal sign-in (Task 7, Steps 5-6) | ALL PASS (06-tenant-portal) | **Pending** (Chris away) | D6 as re-decided: alice opens `https://maas.<apps domain>/maas-consumer-portal/`, is sent to hub Keycloak realm ai-grid, signs in (user name, then password), and the portal opens; the cluster's OpenShift login lists only `rhbk`. Policy `tenant-portal` delivers an oauth2-proxy (namespace `aigrid-portal-auth`), two HTTPRoutes on the MaaS gateway, and Authorino policies. The proxy uses the public tenant client `maas-cli` with PKCE, because MaaS accepts one client per tenant. Cross-origin cookie writes are refused (CSRF fix, RED→GREEN). The portal lists alice's models once Policy `maas-route` gives the MaaS gateway its host name (fixed the same night). Open gap: the portal's Kubernetes-backed calls (user, namespaces) are Unauthorized for Keycloak tokens. |
 
 ## Sample model (fixture)
 
@@ -56,7 +99,30 @@ model plumbing (the grid-backend Service, NetworkPolicy allow-grid-provider) sta
   answer 401 or 500. Making the API trust Keycloak means changing cluster authentication, which D6
   rules out.
 
+## Fixes found along the way
+
+Each is in git with a comment where it applies; the plan's ledger has the detail.
+
+- ACM 2.17 auto-encrypts hub-template `fromSecret` output: decode on the managed side
+  (`| base64dec`), never add `protect`.
+- ACM `musthave` merges list items by `name`, so a Policy can set one field of one Gateway listener.
+- Argo CD's Lua health checks have no `string` library; on an ACM hub `oc get application` means
+  ACM's kind (use `applications.argoproj.io`).
+- Helm charts that hold ACM or ApplicationSet templates escape them as raw strings (``{{`{{...}}`}}``);
+  `verify/04-spokes.sh` lints for it.
+- CloudNativePG on demo.redhat.com comes from `certified-operators`; maas-api's egress NetworkPolicy
+  admits only pods labelled `app=postgres`.
+- Keycloak realm import replaces the built-in client scopes and drops unmanaged user attributes;
+  `35-keycloak.sh` restores `sub`, `preferred_username` and `maas_orgs`.
+- MaaS: the AITenant needs `spec.gateway.name`; Authorino needs the service CA to call maas-api; the
+  gateway needs a CA bundle to reach the grid consumer over TLS; this nightly's ExternalProvider
+  accepts only apikey auth and always dials HTTPS 443; MaaS routes by its own model ID, so the model
+  is named `facebook-opt-125m` end to end; a valid user with no groups gets 500, not 403.
+- AWS load balancers carry no UDP, so the single-site grid's gossip Service is ClusterIP.
+- opt-125m has no chat template; KServe renders the LLMInferenceService through Go templates, so the
+  template is escaped with raw strings.
+
 ## Known overrides of operator-owned objects
 
 - **Authorino Deployment** (`kuadrant-system/authorino`): Policy `authorino-service-ca` adds env `SSL_CERT_DIR` and, through the Authorino CR, a service-CA volume, so Authorino can call maas-api over HTTPS. The authorino operator owns the Deployment. If the Policy's compliance history flips between NonCompliant and Compliant (`kc host get policy ai-grid-policies.authorino-service-ca -n local-cluster -o yaml`, `status.details[].history`), the operator is reverting it.
-- **MaaS gateway** (`openshift-ingress`): Policy `maas-route` owns its parameters ConfigMap (ClusterIP Service, serving certificate, and a CA bundle from Policy `maas-gateway-ca` mounted over the proxy's CA file).
+- **MaaS gateway** (`openshift-ingress`): Policy `maas-route` owns its parameters ConfigMap (ClusterIP Service, and a CA bundle from Policy `maas-gateway-ca` mounted over the proxy's CA file), sets the `https` listener's host name `maas.<apps domain>` (Argo CD ignores that field), copies the router's default certificate into `maas-gw-public-tls` for the listener, and owns the passthrough Route.
