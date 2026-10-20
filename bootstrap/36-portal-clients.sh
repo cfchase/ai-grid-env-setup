@@ -1,10 +1,11 @@
 #!/usr/bin/env bash
-# The MaaS Portal's sign-in proxy (Policy tenant-portal) signs tenants in to realm ai-grid with one
-# confidential client, maas-portal, whose redirect URIs list every ingress spoke's portal callback.
-# Its secret goes into hub Secret ai-grid-policies/maas-portal-oidc, never git or argv. Tenant logins
-# never touch a cluster's OpenShift login. Rerun after adding an ingress spoke (Task 11).
+# MaaS accepts tokens from one client per tenant (AITenant oidc.clientId, matched against azp), so the
+# MaaS Portal's sign-in proxy (Policy tenant-portal) signs tenants in with the same public client the
+# CLI uses, maas-cli, through the browser flow with PKCE: no client secret exists to hand out. This
+# script adds every ingress spoke's portal callback to maas-cli's redirect URIs. Tenant logins never
+# touch a cluster's OpenShift login. Rerun after adding an ingress spoke (Task 11).
 source "$(dirname "$0")/lib.sh"
-ns=$KEYCLOAK_NS realm=ai-grid cid=maas-portal
+ns=$KEYCLOAK_NS realm=ai-grid cid=maas-cli
 kchost=$(kc $HOST get configmap ai-grid-hub-info -n ai-grid-policies -o jsonpath='{.data.keycloakHost}')
 [[ -n $kchost ]] || die "run bootstrap/35-keycloak.sh first"
 au=$(kc $HOST get secret maas-keycloak-initial-admin -n $ns -o jsonpath='{.data.username}' | base64 -d)
@@ -20,18 +21,15 @@ for s in $SPOKES; do
   domain=$(kc $s get ingresses.config cluster -o jsonpath='{.spec.domain}')
   uris+=("https://maas.$domain/oauth2/callback")
 done
-body=$(jq -n --arg cid "$cid" '{clientId: $cid, protocol: "openid-connect", publicClient: false,
-  standardFlowEnabled: true, directAccessGrantsEnabled: false, redirectUris: $ARGS.positional,
-  defaultClientScopes: ["maas"]}' --args "${uris[@]}")
-id=$(api "$base/clients?clientId=$cid" | jq -r '.[0].id // empty')
-if [[ -z $id ]]; then api -X POST "$base/clients" -d "$body" >/dev/null; id=$(api "$base/clients?clientId=$cid" | jq -re '.[0].id')
-else api -X PUT "$base/clients/$id" -d "$body" >/dev/null; fi
-# The secret reaches kubectl through the environment and a pipe, never argv.
-SEC=$(api "$base/clients/$id/client-secret" | jq -r .value) jq -n --arg cid "$cid" \
-  '{apiVersion: "v1", kind: "Secret", metadata: {name: "maas-portal-oidc", namespace: "ai-grid-policies"},
-    stringData: {clientId: $cid, clientSecret: env.SEC}}' | kc $HOST apply -f - >/dev/null
-# The earlier design (a cluster-login identity provider per spoke) is gone: remove its clients and Secrets.
-for old in $(api "$base/clients" | jq -r '.[] | select(.clientId|startswith("ocp-")) | .id'); do api -X DELETE "$base/clients/$old" >/dev/null; done
-for sname in $(kc $HOST get secret -n ai-grid-policies -o name | grep '/portal-idp-'); do kc $HOST delete -n ai-grid-policies "$sname" >/dev/null; done
+id=$(api "$base/clients?clientId=$cid" | jq -re '.[0].id') || die "client $cid missing: realm ai-grid not imported (bootstrap/35-keycloak.sh)"
+api "$base/clients/$id" | jq '.standardFlowEnabled = true | .redirectUris = $ARGS.positional
+  | .attributes["pkce.code.challenge.method"] = "S256"' --args "${uris[@]}" \
+  | api -X PUT "$base/clients/$id" -d @- >/dev/null
+# Earlier designs (a cluster-login identity provider per spoke, then a confidential maas-portal
+# client) are gone: remove their clients and hub Secrets.
+for old in $(api "$base/clients" | jq -r '.[] | select((.clientId|startswith("ocp-")) or .clientId == "maas-portal") | .id'); do
+  api -X DELETE "$base/clients/$old" >/dev/null
+done
+for sname in $(kc $HOST get secret -n ai-grid-policies -o name | grep -E '/(portal-idp-|maas-portal-oidc$)'); do kc $HOST delete -n ai-grid-policies "$sname" >/dev/null; done
 unset tok
-log "client $cid ready for ${#uris[@]} ingress spoke(s); its secret is in ai-grid-policies/maas-portal-oidc"
+log "client $cid takes the portal callback of ${#uris[@]} ingress spoke(s)"

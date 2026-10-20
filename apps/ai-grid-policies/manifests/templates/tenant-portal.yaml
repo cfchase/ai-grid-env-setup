@@ -23,9 +23,7 @@ spec:
                 apiVersion: v1
                 kind: Namespace
                 metadata: { name: aigrid-portal-auth }
-            # The client secret comes from hub Secret maas-portal-oidc (bootstrap/36-portal-clients.sh);
-            # a hub fromSecret arrives as base64, which a data field takes. The cookie key is made
-            # once on the spoke and kept.
+            # The session cookie's key, made once on the spoke and kept.
             - complianceType: musthave
               objectDefinition:
                 apiVersion: v1
@@ -33,7 +31,6 @@ spec:
                 metadata: { name: maas-portal-proxy, namespace: aigrid-portal-auth }
                 type: Opaque
                 data:
-                  clientSecret: '{{hub fromSecret "ai-grid-policies" "maas-portal-oidc" "clientSecret" hub}}'
                   cookieSecret: '{{ if $s }}{{ $s.data.cookieSecret }}{{ else }}{{ randAlphaNum 32 | base64enc }}{{ end }}'
             - complianceType: musthave
               objectDefinition:
@@ -56,7 +53,9 @@ spec:
                             - --upstream=static://200
                             - --provider=oidc
                             - --oidc-issuer-url={{hub fromConfigMap "ai-grid-policies" "ai-grid-hub-info" "tenantIssuer" hub}}
-                            - --client-id=maas-portal
+                            # MaaS's tenant client (public, so PKCE instead of a secret).
+                            - --client-id={{hub fromConfigMap "ai-grid-policies" "ai-grid-hub-info" "tenantClientId" hub}}
+                            - --code-challenge-method=S256
                             - --scope=openid
                             - --oidc-groups-claim=groups
                             - --email-domain=*
@@ -72,8 +71,6 @@ spec:
                             - --cookie-httponly=true
                             - --cookie-samesite=lax
                           env:
-                            - name: OAUTH2_PROXY_CLIENT_SECRET
-                              valueFrom: { secretKeyRef: { name: maas-portal-proxy, key: clientSecret } }
                             - name: OAUTH2_PROXY_COOKIE_SECRET
                               valueFrom: { secretKeyRef: { name: maas-portal-proxy, key: cookieSecret } }
                           ports:
@@ -167,7 +164,7 @@ spec:
             # A browser has no Authorization header: Authorino asks the proxy whether its session
             # cookie is valid (/oauth2/auth) and, if so, passes the user's access token and MaaS
             # identity headers to the portal; with no session it redirects to /oauth2/start. A
-            # caller with a bearer token from realm ai-grid's maas-portal client is checked directly.
+            # caller with a bearer token from realm ai-grid's tenant client is checked directly.
             - complianceType: musthave
               objectDefinition:
                 apiVersion: kuadrant.io/v1
@@ -288,7 +285,16 @@ spec:
                         patternMatching:
                           patterns:
                             - predicate: has(auth.identity.iss) && auth.identity.iss == '{{hub fromConfigMap "ai-grid-policies" "ai-grid-hub-info" "tenantIssuer" hub}}'
-                            - predicate: has(auth.identity.azp) && auth.identity.azp == 'maas-portal'
+                            - predicate: has(auth.identity.azp) && auth.identity.azp == '{{hub fromConfigMap "ai-grid-policies" "ai-grid-hub-info" "tenantClientId" hub}}'
+                      # The session cookie is SameSite=lax, so any page under the same apps domain
+                      # (another Route, a tenant workload) is same-site and can send it with a
+                      # write. A cookie-session write must come from the portal's own origin.
+                      same-origin-writes:
+                        priority: 1
+                        when: [{ predicate: "has(auth.identity.anonymous)" }]
+                        patternMatching:
+                          patterns:
+                            - predicate: "request.method in ['GET', 'HEAD', 'OPTIONS'] || ('origin' in request.headers ? request.headers['origin'] == 'https://maas.{{ $domain }}' : ('sec-fetch-site' in request.headers && request.headers['sec-fetch-site'] == 'same-origin'))"
                       require-auth:
                         priority: 1
                         patternMatching:
