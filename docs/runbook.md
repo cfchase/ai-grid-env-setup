@@ -37,10 +37,10 @@ backend addresses (`modelBackendIP`, `providerIP`) assume the default `172.30.0.
 | 1 | `bash hack/quay-env.sh` | Writes `.env` (once per machine) | seconds |
 | 2 | `make hub` | GitOps, then Argo CD builds the hub from `apps/*` (ACM, maas-db, Keycloak, grid enrollment, Policies); Keycloak users and the hub facts ConfigMap | first build not timed (it ran in stages during Tasks 2–4); a rerun 17 s |
 | 3 | commit `hubSiteDigest` | `50-grid-hub-info.sh` prints it; a new hub has a new grid CA (D8) | – |
-| 4 | `make spokes` | Labels each spoke; ACM delivers the pull secret, catalog, OpenShift AI, MaaS, the grid, the model and tenant intent; adds portal callbacks | about 20 min to DSC Ready (Task 5); the rest not timed |
+| 4 | `make spokes`, then **Add to AI Grid** in the console | `make spokes` prepares spokes (pull secret, portal callbacks) and labels none. Adding a cluster in the console (Clusters) sets `ai-grid/enabled`, `ai-grid/role` and `location`; ACM then delivers the catalog, OpenShift AI, MaaS, the grid, the model and tenant intent. Dev shortcut without the console: `bash bootstrap/40-spoke.sh` | about 20 min to DSC Ready (Task 5); the rest not timed |
 | 5 | `make verify` | every check in six scripts (97 on 2026-10-19) | about 2 min |
 
-`make all` is `hub` then `spokes`. Every script is safe to rerun (`make all` on the built hub,
+`make all` is `hub` then `spokes`; it doesn't add any cluster to the grid. Every script is safe to rerun (`make all` on the built hub,
 2026-10-19: no changes, `make verify` ALL PASS).
 
 **Teardown** (`make teardown`) stops delivery and leaves what it installed: it unlabels the spokes,
