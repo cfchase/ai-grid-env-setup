@@ -40,13 +40,10 @@ uat "session started" "proxy refused the code: PKCE not enabled on maas-cli, or 
 code=$(curl -s -o "$jar/page" -w '%{http_code}' -b "$jar/c" "$MAAS/maas-consumer-portal/")
 uat "portal opens" "got $code: 302 = Authorino can't reach the proxy's /oauth2/auth; 503 = gateway can't reach maas-portal (ReferenceGrant, DestinationRule, or its NetworkPolicy)" \
   bash -c "[[ $code == 200 ]] && grep -qi '<html' '$jar/page'"
-# The portal's MaaS module receives alice's token. Known gap (runbook): with no listener host name on
-# the MaaS gateway, maas-api can't name its external URL (/v1/tenants), so the module answers 503
-# "maas-api is not available" instead of the model list.
+# The portal's MaaS module receives alice's token and lists her models.
 code=$(curl -s -o "$jar/models" -w '%{http_code}' -b "$jar/c" "$MAAS/maas-consumer-portal/maas/api/v1/models")
-uat "portal's MaaS module reached" "got $code: 401/403/302 = the session's token wasn't passed on (AuthPolicy maas-portal-oidc response headers)" \
-  bash -c "[[ $code == 200 ]] && jq -e '[.. | strings] | index(\"$MODEL_NAME\")' '$jar/models' || { [[ $code == 503 ]] && grep -q 'maas-api is not available' '$jar/models'; }"
-[[ $code == 200 ]] || echo "     note: models not listed ($code): the known gateway host name gap, see docs/runbook.md"
+uat "portal lists alice's models" "got $code: 401/403/302 = the session's token wasn't passed on (AuthPolicy maas-portal-oidc); 503 'maas-api is not available' = MaaS can't name its public URL (listener host name, Policy maas-route), or maas-ui cached a failed lookup (restart it)" \
+  bash -c "[[ $code == 200 ]] && jq -e '[.. | strings] | index(\"$MODEL_NAME\")' '$jar/models'"
 # Cross-origin writes: a page on another host under the same apps domain is same-site, so the lax
 # session cookie rides along. The gateway must refuse a cookie-session write whose Origin isn't the
 # portal's own, and still let the portal's own writes through. POST to a read-only path: the portal

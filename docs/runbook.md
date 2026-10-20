@@ -45,13 +45,12 @@ model plumbing (the grid-backend Service, NetworkPolicy allow-grid-provider) sta
 
 ## Known gaps
 
-- **Portal model list** (`/maas-consumer-portal/maas/api/v1/models`): the portal's MaaS module finds
-  maas-api's external URL from `/v1/tenants`, which reads the MaaS gateway's listener host name or an
-  external status address. Ours has neither (the host stays out of git; the Service is ClusterIP), so
-  discovery fails and the module answers 503 "maas-api is not available". Setting the listener host
-  name by hand fixes discovery but breaks the Route: its re-encrypt hop doesn't send that SNI, so every
-  MaaS call through `maas.<apps domain>` got 503 until it was reverted. A fix needs a decision (host
-  name in git or by Policy, plus a passthrough Route and a certificate for that name).
+- **MaaS keeps a stale model URL.** maas-controller writes a MaaSModelRef's `status.endpoint` when the
+  model reconciles and doesn't watch the Gateway, so a model created before Policy `maas-route` set the
+  listener host name keeps the in-cluster address. maas-ui likewise caches a failed `/v1/tenants`
+  lookup. Fix: delete the `maas-controller` and `maas-ui` pods in `redhat-ods-applications`
+  (`verify/06-tenant-e2e.sh` "model URL is public" and `06-tenant-portal.sh` "portal lists alice's
+  models" catch both).
 - **Portal Kubernetes-backed calls** (`/api/v1/user`, `/maas/api/v1/namespaces`): the portal's BFFs
   check the forwarded token against the cluster API, which doesn't trust Keycloak tokens, so these
   answer 401 or 500. Making the API trust Keycloak means changing cluster authentication, which D6
