@@ -12,6 +12,8 @@ uat "app console"         "Argo CD app not Synced/Healthy: the remote kustomize 
 pinned=$(oc kustomize "$(dirname "$0")/../apps/console/manifests" 2>/dev/null | yq 'select(.kind=="Deployment").spec.template.spec.containers[] | select(.name=="bff" or .name=="ai-grid-backend") | .image')
 live=$(kc $HOST get deploy $name -n $ns -o json | jq -r '.spec.template.spec.containers[] | select(.name=="bff" or .name=="ai-grid-backend") | .image')
 export pinned live
+uat "console images pinned by digest" "an image in apps/console/manifests/images lacks @sha256: a tag alone can be overwritten" \
+  bash -c '[[ $(grep -c "@sha256:" <<<"$pinned") == 2 || $pinned == *image-registry.openshift-image-registry.svc* ]]'
 uat "console runs the pinned images" "Argo CD app console not synced to git's image tags, or the render failed (oc kustomize apps/console/manifests)" \
   bash -c '[[ -n $pinned && $pinned == "$live" ]]'
 if grep -q '^  - ./images/in-cluster' "$(dirname "$0")/../apps/console/manifests/kustomization.yaml"; then
