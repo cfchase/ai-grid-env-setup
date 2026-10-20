@@ -1,0 +1,12 @@
+# Published images from GitHub Actions (ghcr.io/ai-grid-cloud), once the ghcr workflow PRs merge
+# (console PR 32, backend PR 8). Deploy the immutable sha-<full commit> tag, never latest; bump both
+# tags with the base's ref in ../../kustomization.yaml.
+apiVersion: kustomize.config.k8s.io/v1alpha1
+kind: Component
+patches:
+  - target: { kind: Deployment, name: ai-grid-provider-console }
+    patch: |
+      - { op: test, path: /spec/template/spec/containers/1/name, value: bff }
+      - { op: replace, path: /spec/template/spec/containers/1/image, value: "ghcr.io/ai-grid-cloud/ai-grid-provider-console:sha-CONSOLE_COMMIT" }
+      - { op: test, path: /spec/template/spec/containers/2/name, value: ai-grid-backend }
+      - { op: replace, path: /spec/template/spec/containers/2/image, value: "ghcr.io/ai-grid-cloud/ai-grid-provider-backend:sha-BACKEND_COMMIT" }

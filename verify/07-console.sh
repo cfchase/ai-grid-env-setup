@@ -23,4 +23,16 @@ code=$(curl -s -o /dev/null -w '%{http_code}' -H @<(printf 'Authorization: Beare
 uat "clusters API answers" "got $code: 401/403 = token not accepted by kube-auth-proxy; 501 is expected until the console and backend gRPC names match" \
   bash -c "[[ $code == 200 || $code == 501 ]]"
 [[ $code == 501 ]] && echo "     note: clusters API is 501 (Unimplemented): the known console/backend gRPC mismatch"
+# The backend's own rights: label clusters, read the one root Policy, nothing more.
+sa=system:serviceaccount:$ns:$name
+can() { [[ $(kc $HOST auth can-i "$@" --as=$sa 2>/dev/null) == "$want" ]]; }
+export -f can; export sa
+uat "backend may label clusters" "ClusterRole ai-grid-provider-console-backend lacks patch (apps/console/manifests)" \
+  bash -c "want=yes can patch managedclusters.cluster.open-cluster-management.io"
+uat "backend can't create or delete clusters" "the backend's ClusterRole grew create or delete on managedclusters" \
+  bash -c "want=no can create managedclusters.cluster.open-cluster-management.io && want=no can delete managedclusters.cluster.open-cluster-management.io"
+uat "backend reads ai-grid-ready" "Role ai-grid-provider-console-backend in ai-grid-policies missing (apps/ai-grid-policies)" \
+  bash -c "want=yes can get policies.policy.open-cluster-management.io/ai-grid-ready -n ai-grid-policies"
+uat "backend can't read Policy copies" "the backend may read per-cluster Policies, whose hub templates hold rendered secrets" \
+  bash -c "want=no can list policies.policy.open-cluster-management.io -A && want=no can get policies.policy.open-cluster-management.io -n local-cluster"
 summary
