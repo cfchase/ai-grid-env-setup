@@ -9,6 +9,10 @@ uat "maas-db exported"        "ServiceExport maas-db-rw not Valid: Submariner's 
   bash -c "kc $h get serviceexport maas-db-rw -n maas-db -o jsonpath='{.status.conditions[?(@.type==\"Valid\")].status}' | grep -qx True"
 uat "maas-db read endpoint"   "Service maas-read-ro missing (apps/maas-db)" \
   bash -c "kc $h get svc maas-read-ro -n maas-db -o jsonpath='{.spec.externalName}' | grep -qx maas-db-ro.maas-db.svc.cluster.local"
+# Exported clusterset-wide, so the namespace admits 5432 only from maas-api, CloudNativePG itself,
+# and other clusters' Globalnet addresses. Probe from a namespace with no business there.
+uat "maas-db refuses other namespaces" "NetworkPolicy maas-db-ingress missing or too wide (apps/maas-db)" \
+  bash -c "! kc $h exec -n openshift-gitops deploy/openshift-gitops-repo-server -- timeout 4 bash -c '</dev/tcp/maas-db-rw.maas-db.svc/5432' 2>/dev/null"
 uat "replica placement skips the hub" "Placement ai-grid-ingress-remote picked local-cluster" \
   bash -c "! kc $h get placementdecisions -n maas-db -l cluster.open-cluster-management.io/placement=ai-grid-ingress-remote -o json | jq -e '[.items[].status.decisions[]?.clusterName] | index(\"local-cluster\")'"
 for s in $SPOKES; do
