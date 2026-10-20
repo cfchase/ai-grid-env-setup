@@ -9,13 +9,39 @@ metadata:
   namespace: maas-db
   annotations: { argocd.argoproj.io/sync-wave: "3" }
 spec:
-  instances: 1
+  # Three instances: a primary and two standbys that CloudNativePG promotes on failure.
+  instances: 3
+  affinity: { enablePodAntiAffinity: true, topologyKey: kubernetes.io/hostname, podAntiAffinityType: preferred }
   # maas-api's egress NetworkPolicy (maas-api-egress-restrict) allows port 5432 only to pods
   # labelled app=postgres, so the database pods carry that label.
   inheritedMetadata:
     labels: { app: postgres }
   bootstrap: { initdb: { database: maas, owner: maas_api } }
+  # Remote spokes connect by the Submariner name; the server certificate names it too.
+  certificates:
+    serverAltDNSNames: [maas-db-rw.maas-db.svc.clusterset.local]
   storage: { size: 20Gi }
   resources:
     requests: { cpu: 250m, memory: 1Gi }
     limits: { cpu: "2", memory: 4Gi }
+---
+# Remote ingress spokes reach the primary through Submariner as
+# maas-db-rw.maas-db.svc.clusterset.local, and stream from it into their read replica.
+apiVersion: multicluster.x-k8s.io/v1alpha1
+kind: ServiceExport
+metadata:
+  name: maas-db-rw
+  namespace: maas-db
+  annotations: { argocd.argoproj.io/sync-wave: "4" }
+---
+# Every cluster has the same read endpoint, maas-read-ro.maas-db.svc: on a remote spoke it's its
+# replica's own read-only Service; here it points at this cluster's standbys.
+apiVersion: v1
+kind: Service
+metadata:
+  name: maas-read-ro
+  namespace: maas-db
+  annotations: { argocd.argoproj.io/sync-wave: "4" }
+spec:
+  type: ExternalName
+  externalName: maas-db-ro.maas-db.svc.cluster.local
