@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 source "$(dirname "$0")/lib.sh"
-# The fallback for D4: the ACM Policy does this unless PULL_SECRET_MODE=script.
-[[ $PULL_SECRET_MODE == script ]] || { log "PULL_SECRET_MODE=$PULL_SECRET_MODE: the ACM Policy handles the pull secret; nothing to do"; exit 0; }
+# The fallback for D4: the ACM Policy does this unless pullSecretMode is script in apps/ai-grid-policies/manifests/values.yaml.
+[[ $PULL_SECRET_MODE == script ]] || { log "pullSecretMode=$PULL_SECRET_MODE in git: the ACM Policy handles the pull secret; nothing to do"; exit 0; }
 [[ -f "$ENV_FILE" ]] || die "missing $ENV_FILE: run hack/quay-env.sh (Task 2)"
 set -a; source "$ENV_FILE"; set +a   # QUAY_USER, QUAY_TOKEN; never printed
 [[ -n "${QUAY_USER:-}" && -n "${QUAY_TOKEN:-}" ]] || die "QUAY_USER or QUAY_TOKEN empty in $ENV_FILE"

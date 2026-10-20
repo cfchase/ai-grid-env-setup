@@ -12,24 +12,16 @@ export SPOKE_LOCATIONS="${SPOKE_LOCATIONS:-local-cluster=us-east}"
 # The deployer's quay.io/rhoai login (QUAY_USER, QUAY_TOKEN), git-ignored, written by hack/quay-env.sh
 # (Task 2). Read only by bootstrap/25-hub-secrets.sh and the fallback bootstrap/10-pull-secret.sh (Task 5).
 export ENV_FILE="${ENV_FILE:-$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/.env}"
-# D4: policy (default: ACM Policy rhoai-pull-secret) or script (fallback: bootstrap/10-pull-secret.sh).
-export PULL_SECRET_MODE="${PULL_SECRET_MODE:-policy}"
-# Keycloak namespace on the hub (Task 3): the RHBK operator demo.redhat.com pre-installs (Chris, 2026-10-19).
-export KEYCLOAK_NS="${KEYCLOAK_NS:-keycloak}"
-# Grid release for every chart and image. Switch to 0.2.1 once its tag and charts are published
-# (upstream main 5963265, "prepare Grid v0.2.1", wasn't tagged on 2026-10-19).
-export GRID_VERSION=0.2.0 GRID_CHARTS=oci://ghcr.io/praxis-proxy/charts
-# helm: the published grid charts (default). odh-gitops: PR 181 on local-cluster (Task 14).
-export GRID_INSTALL="${GRID_INSTALL:-helm}"
-export GRID_NS="${GRID_NS:-grid}"
-export GRID_NETWORK=grid GRID_ID=aigrid-demo
-export MODEL_NAME=facebook-opt-125m
-# The spokes' platform chart: odh-gitops main at 8897054 (2026-10-16), which has dashboard.dsc.maasPortal.
-export ODH_GITOPS_REF="${ODH_GITOPS_REF:-8897054}"
-# The nightly OpenShift AI 3.6 catalog, pinned by digest; change it deliberately.
-export RHOAI_CATALOG_IMAGE="${RHOAI_CATALOG_IMAGE:-quay.io/rhoai/rhoai-fbc-fragment:rhoai-3.6@sha256:70c700e76cb23f13a4ccc1896bfcf37238229c5aa80af7daae7fc8028c7f1d9c}"
-export LABEL_ENABLED=ai-grid/enabled LABEL_ROLE=ai-grid/role
-export LABEL_LOCATION=location LABEL_PROVISIONED=ai-grid/provisioned
+# Versions and pins (the nightly catalog, odh-gitops, the grid) live in apps/*/manifests/values.yaml,
+# which Argo CD reads; the scripts below only read the few facts they need from git.
+# D4: policy (ACM Policy rhoai-pull-secret) or script (fallback bootstrap/10-pull-secret.sh), as set
+# in git, so the script and the Policy can't both act.
+export PULL_SECRET_MODE=$(awk '$1=="pullSecretMode:"{print $2}' "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/apps/ai-grid-policies/manifests/values.yaml")
+# Keycloak's namespace on the hub, as apps/keycloak/application.yaml sets it (change both together).
+export KEYCLOAK_NS=keycloak
+export GRID_NS=grid                                 # the grid's namespace on every spoke (gridNs in git)
+export MODEL_NAME=facebook-opt-125m                 # the fixture model's MaaS ID (spokes/models/opt-125m)
+export LABEL_ENABLED=ai-grid/enabled LABEL_ROLE=ai-grid/role LABEL_LOCATION=location
 # During the build Argo CD reads the fork's build branch (Chris, 2026-10-19); Task 11 switches to upstream main.
 export GIT_REPO="${GIT_REPO:-https://github.com/cfchase/ai-grid-env-setup.git}" GIT_REF="${GIT_REF:-build}"
 # Provider console (Task 9). Registry ghcr.io/ai-grid-cloud (Chris, 2026-10-17). Set the tags after Task 9, Step 2.
