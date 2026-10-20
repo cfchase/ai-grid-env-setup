@@ -61,8 +61,10 @@ spec:
                   to: { kind: Service, name: maas-default-gateway-maas-gateway-class, weight: 100 }
                   port: { targetPort: 443 }
                   tls: { termination: passthrough, insecureEdgeTerminationPolicy: Redirect }
-    # The listener's certificate: a copy of the router's default certificate (a wildcard for the
-    # apps domain), kept in step on every evaluation.
+    # The listener's certificate names maas.<apps domain> only. A wildcard would let a browser reuse
+    # its HTTP/2 connection to the gateway for every other apps host at the same address (Keycloak,
+    # the console), which the gateway answers with 404. Where cert-manager issued the router's own
+    # certificate, the same issuer issues this one; otherwise the router's certificate is copied.
     - objectDefinition:
         apiVersion: policy.open-cluster-management.io/v1
         kind: ConfigurationPolicy
@@ -70,9 +72,26 @@ spec:
         spec:
           severity: medium
           object-templates-raw: |
-            {{`{{- $ic := lookup "operator.openshift.io/v1" "IngressController" "openshift-ingress-operator" "default" }}
+            {{`{{- $domain := (lookup "config.openshift.io/v1" "Ingress" "" "cluster").spec.domain }}
+            {{- $ic := lookup "operator.openshift.io/v1" "IngressController" "openshift-ingress-operator" "default" }}
             {{- $name := "router-certs-default" }}
             {{- if and $ic.spec (hasKey $ic.spec "defaultCertificate") }}{{ $name = $ic.spec.defaultCertificate.name }}{{ end }}
+            {{- $routerCert := dict }}
+            {{- if lookup "apiextensions.k8s.io/v1" "CustomResourceDefinition" "" "certificates.cert-manager.io" }}
+            {{- $routerCert = lookup "cert-manager.io/v1" "Certificate" "openshift-ingress" $name }}
+            {{- end }}
+            {{- if $routerCert }}
+            - complianceType: musthave
+              objectDefinition:
+                apiVersion: cert-manager.io/v1
+                kind: Certificate
+                metadata: { name: maas-gw-public-tls, namespace: openshift-ingress }
+                spec:
+                  secretName: maas-gw-public-tls
+                  dnsNames: ['maas.{{ $domain }}']
+                  issuerRef: { name: '{{ $routerCert.spec.issuerRef.name }}', kind: '{{ $routerCert.spec.issuerRef.kind }}', group: cert-manager.io }
+                  privateKey: { rotationPolicy: Always }
+            {{- else }}
             - complianceType: mustonlyhave
               objectDefinition:
                 apiVersion: v1
@@ -81,7 +100,8 @@ spec:
                 type: kubernetes.io/tls
                 data:
                   tls.crt: '{{ fromSecret "openshift-ingress" $name "tls.crt" }}'
-                  tls.key: '{{ fromSecret "openshift-ingress" $name "tls.key" }}'`}}
+                  tls.key: '{{ fromSecret "openshift-ingress" $name "tls.key" }}'
+            {{- end }}`}}
 ---
 apiVersion: policy.open-cluster-management.io/v1
 kind: PlacementBinding

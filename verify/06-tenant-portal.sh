@@ -16,6 +16,11 @@ uat "sign-in proxy ready"  "image pull, or Secret maas-portal-proxy missing a ke
   kc $PORTAL_SPOKE rollout status deploy/maas-portal-proxy -n aigrid-portal-auth --timeout=5s
 uat "OpenShift login untouched" "an identity provider other than the demo's rhbk was added to the cluster's OAuth" \
   bash -c "kc $PORTAL_SPOKE get oauth cluster -o jsonpath='{.spec.identityProviders[*].name}' | grep -qx rhbk"
+# A browser reuses an HTTP/2 connection for any host its certificate covers at the same address, so
+# a wildcard here would send Keycloak and console requests to the MaaS gateway, which answers 404.
+host=${MAAS#https://}
+uat "gateway certificate names only maas" "the MaaS gateway serves a certificate covering other hosts (Policy maas-route's Certificate maas-gw-public-tls not issued yet?)" \
+  bash -c "echo | openssl s_client -connect $host:443 -servername $host 2>/dev/null | openssl x509 -noout -ext subjectAltName | tr -d ' ' | grep -qx 'DNS:$host'"
 
 start=$(loc "$MAAS/maas-consumer-portal/")
 uat "visitor sent to sign in" "AuthPolicy maas-portal-oidc not enforced, or the route isn't attached (gateway allowedRoutes lacks aigrid-portal-auth); got '$start'" \
