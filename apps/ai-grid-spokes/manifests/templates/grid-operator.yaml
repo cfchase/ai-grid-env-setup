@@ -28,7 +28,7 @@ spec:
               # The model this site serves, registered as its InferenceProvider.
               providers:
                 {{ .Values.modelName }}:
-                  model: facebook/opt-125m
+                  model: {{ .Values.modelName }}
                   backendKind: local
                   endpoint: https://{{ .Values.modelName }}-kserve-workload-svc.aigrid-models.svc:8000
             # The provider gateway's fixed ClusterIP: the address the operator advertises and probes

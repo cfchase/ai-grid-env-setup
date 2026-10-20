@@ -4,7 +4,9 @@ metadata:
   name: facebook-opt-125m
   namespace: aigrid-models
 spec:
-  model: { uri: hf://facebook/opt-125m, name: facebook/opt-125m }
+  # Served as facebook-opt-125m: MaaS calls a model by its MaaSModelRef name (no "/" allowed) and
+  # doesn't rewrite it, so the grid gateways and vLLM all use that one name.
+  model: { uri: hf://facebook/opt-125m, name: facebook-opt-125m }
   baseRefs:
     - name: v3-6-0-kserve-config-llm-template-cpu
   replicas: 1

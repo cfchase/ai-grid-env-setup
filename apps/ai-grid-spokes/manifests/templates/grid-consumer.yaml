@@ -29,7 +29,7 @@ spec:
               image: { repository: ghcr.io/praxis-proxy/grid-gateway, tag: v{{ .Values.gridVersion }} }
               gatewayConfig:
                 localSite: maas-edge
-                model: facebook/opt-125m
+                model: {{ .Values.modelName }}
                 auth: { mode: none }
                 backends:
                   {{`{{.name}}`}}: { endpoint: "{{ .Values.providerIP }}:8443" }

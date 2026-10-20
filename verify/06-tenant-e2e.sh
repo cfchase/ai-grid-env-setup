@@ -17,9 +17,10 @@ e2e_login() {
   # put a real host in git), so call the public Route at the model's path instead.
   URL="$MAAS/models-as-a-service/$MODEL_NAME"
 }
+# MaaS routes by its own model ID (the MaaSModelRef name), not the upstream name facebook/opt-125m.
 e2e_complete() {
   curl -sk -o out/e2e-completion.json -w '%{http_code}' -H "Authorization: Bearer $KEY" -H 'Content-Type: application/json' \
-    -d "{\"model\":\"facebook/opt-125m\",\"messages\":[{\"role\":\"user\",\"content\":\"Hello\"}],\"max_tokens\":$1}" "$URL/v1/chat/completions"
+    -d "{\"model\":\"$MODEL_NAME\",\"messages\":[{\"role\":\"user\",\"content\":\"Hello\"}],\"max_tokens\":$1}" "$URL/v1/chat/completions"
 }
 [[ -n "${E2E_LIB:-}" ]] && return 0   # sourced as a library: define functions only
 mkdir -p out
