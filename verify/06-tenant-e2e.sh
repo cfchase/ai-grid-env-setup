@@ -13,7 +13,9 @@ e2e_login() {
   MODELS=$(curl -sk -H "Authorization: Bearer $tok" "$MAAS/maas-api/v1/models")
   KEY=$(curl -sk -X POST -H "Authorization: Bearer $tok" -H 'Content-Type: application/json' \
     -d '{"name":"aigrid-e2e","expiresIn":"1d"}' "$MAAS/maas-api/v1/api-keys" | jq -r .key)
-  URL=$(jq -r '.data[0].url' <<<"$MODELS")
+  # MaaS lists the gateway's in-cluster address (the listener carries no host name, which would
+  # put a real host in git), so call the public Route at the model's path instead.
+  URL="$MAAS/models-as-a-service/$MODEL_NAME"
 }
 e2e_complete() {
   curl -sk -o out/e2e-completion.json -w '%{http_code}' -H "Authorization: Bearer $KEY" -H 'Content-Type: application/json' \

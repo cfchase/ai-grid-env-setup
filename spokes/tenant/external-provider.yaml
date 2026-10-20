@@ -16,4 +16,4 @@ spec:
   provider: openai
   endpoint: grid-gateway.grid.svc.cluster.local
   # The grid gateway ignores it; MaaS requires one. Policy grid-upstream-key generates it on the spoke.
-  auth: { type: apikey, secretRef: { name: grid-maas-upstream } }
+  auth: { type: simple, secretRef: { name: grid-maas-upstream } }
