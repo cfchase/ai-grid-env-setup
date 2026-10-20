@@ -19,6 +19,8 @@ for sts in observability-thanos-compact observability-thanos-store-shard-0 obser
 done
 uat "thanos query ready"     "kc host get deploy observability-thanos-query -n $ns" \
   kc $h rollout status deploy/observability-thanos-query -n $ns --timeout=5s
+# OpenShift AI's series keep their own job names (the collector's write relabelling restores
+# exported_job), so they're found by the OpenTelemetry scope label the data-science-collector adds.
 # q <promql>: Thanos query result through the API server's service proxy (cluster-admin only).
 q() { kc $HOST get --raw "/api/v1/namespaces/open-cluster-management-observability/services/http:observability-thanos-query:9090/proxy/api/v1/query?query=$(jq -rn --arg q "$1" '$q|@uri')"; }
 export -f q
@@ -32,6 +34,6 @@ for s in $SPOKES; do
   uat "$s rhai-metrics scrape config" "Policy rhai-metrics-hub didn't add rhai-metrics to ClusterManagementAddOn multicluster-observability-addon, so ACM never sends it to $s" \
     kc $s get scrapeconfig rhai-metrics -n open-cluster-management-agent-addon
   uat "$s OpenShift AI metrics in thanos" "ScrapeConfig rhai-metrics not distributed, or NetworkPolicy allow-acm-rhai-metrics missing on $s (Policy rhai-metrics)" \
-    bash -c "q 'count({cluster=\"$s\",job=\"rhai-metrics\"})' | jq -e '.data.result | length > 0'"
+    bash -c "q 'count({cluster=\"$s\",otel_scope_name=~\".+\",prometheus=\"open-cluster-management-agent-addon/user-workload-metrics-collector\"})' | jq -e '.data.result | length > 0'"
 done
 summary
