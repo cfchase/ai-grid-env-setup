@@ -26,7 +26,7 @@ start=$(loc "$MAAS/maas-consumer-portal/")
 uat "visitor sent to sign in" "AuthPolicy maas-portal-oidc not enforced, or the route isn't attached (gateway allowedRoutes lacks aigrid-portal-auth); got '$start'" \
   bash -c "[[ '$start' == '$MAAS/oauth2/start?rd='* ]]"
 kcauth=$(loc "$start")
-uat "proxy sends to Keycloak" "proxy can't read the issuer's discovery document, or route maas-portal-oauth2 isn't public; got '${kcauth%%\?*}'" \
+uat "proxy sends to Keycloak" "proxy can't read the issuer's discovery document, or route maas-portal-signin isn't public; got '${kcauth%%\?*}'" \
   bash -c "[[ '$kcauth' == 'https://$KC/realms/ai-grid/protocol/openid-connect/auth?'* ]]"
 # formurl <file>: the first form's action URL in a Keycloak page.
 formurl() { grep -o 'action="[^"]*"' "$1" | head -1 | sed 's/^action="//; s/"$//; s/&amp;/\&/g'; }
@@ -41,7 +41,15 @@ uat "$TENANT_USER signs in" "wrong password in keycloak/ai-grid-test-users, or t
   bash -c "[[ '$callback' == '$MAAS/oauth2/callback?'* ]]"
 back=$(loc "$callback")
 uat "session started" "proxy refused the code: PKCE not enabled on maas-cli, or a missing email claim; see the proxy's log" \
-  bash -c "[[ '$back' == '/maas-consumer-portal/' || '$back' == '$MAAS/maas-consumer-portal/' ]] && grep -q _maas_portal_proxy '$jar/c'"
+  bash -c "[[ '$back' == '/maas-consumer-portal/' || '$back' == '$MAAS/maas-consumer-portal/' ]] && grep -q __Host-maas_portal_proxy '$jar/c'"
+# A __Host- cookie carries no Domain, so no other host (a subdomain of maas.<domain>) can set or
+# shadow it; curl's jar marks a cookie with a Domain by a leading dot and TRUE.
+uat "session cookie host-only" "the proxy sets a Domain on its cookie, or isn't named __Host-maas_portal_proxy (--cookie-name, no --cookie-domain)" \
+  bash -c "awk -F'\t' '\$6 ~ /^__Host-maas_portal_proxy/ && \$1 !~ /^(#HttpOnly_)?\\./ && \$2 == \"FALSE\" {f=1} END {exit !f}' '$jar/c'"
+# Only the sign-in steps are public; /oauth2/auth would hand a page's script the session's token.
+code=$(curl -s -o /dev/null -w '%{http_code}' -b "$jar/c" "$MAAS/oauth2/auth")
+uat "proxy's token endpoint not public" "got $code: an old route maas-portal-oauth2 (all of /oauth2) is still attached, or maas-portal-signin matches more than start, callback and sign_out" \
+  bash -c "[[ $code != 2* ]]"
 code=$(curl -s -o "$jar/page" -w '%{http_code}' -b "$jar/c" "$MAAS/maas-consumer-portal/")
 uat "portal opens" "got $code: 302 = Authorino can't reach the proxy's /oauth2/auth; 503 = gateway can't reach maas-portal (ReferenceGrant, DestinationRule, or its NetworkPolicy)" \
   bash -c "[[ $code == 200 ]] && grep -qi '<html' '$jar/page'"
@@ -57,9 +65,14 @@ domain=${MAAS#https://maas.}
 code=$(curl -s -o "$jar/post" -w '%{http_code}' -b "$jar/c" -X POST -H "Origin: https://evil.$domain" -H 'Content-Type: application/json' -d '{}' "$MAAS/maas-consumer-portal/maas/api/v1/models")
 uat "cross-origin write refused" "got $code: AuthPolicy maas-portal-oidc's same-origin-writes rule missing; a cookie-session POST from another origin reached the portal" \
   bash -c "[[ $code != 2* ]] && ! grep -q '\"error\"' '$jar/post'"
+for h in 'Origin: null' 'Sec-Fetch-Site: cross-site'; do
+  code=$(curl -s -o "$jar/post" -w '%{http_code}' -b "$jar/c" -X POST -H "$h" -H 'Content-Type: application/json' -d '{}' "$MAAS/maas-consumer-portal/maas/api/v1/models")
+  uat "write with '$h' refused" "got $code: the same-origin-writes rule let it through" \
+    bash -c "[[ $code != 2* ]] && ! grep -q '\"error\"' '$jar/post'"
+done
 code=$(curl -s -o "$jar/post" -w '%{http_code}' -b "$jar/c" -X POST -H "Origin: $MAAS" -H 'Content-Type: application/json' -d '{}' "$MAAS/maas-consumer-portal/maas/api/v1/models")
 uat "same-origin write let through" "got $code: the same-origin-writes rule refuses the portal's own Origin" \
   grep -q '"error"' "$jar/post"
-code=$(curl -s -o /dev/null -w '%{http_code}' -H 'Cookie: _maas_portal_proxy=forged' "$MAAS/maas-consumer-portal/")
+code=$(curl -s -o /dev/null -w '%{http_code}' -H 'Cookie: __Host-maas_portal_proxy=forged' "$MAAS/maas-consumer-portal/")
 uat "forged cookie refused" "got $code: Authorino passed a request without a valid session" test "$code" = 302
 summary

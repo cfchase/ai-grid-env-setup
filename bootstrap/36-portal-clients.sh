@@ -3,7 +3,9 @@
 # MaaS Portal's sign-in proxy (Policy tenant-portal) signs tenants in with the same public client the
 # CLI uses, maas-cli, through the browser flow with PKCE: no client secret exists to hand out. This
 # script adds every ingress spoke's portal callback to maas-cli's redirect URIs. Tenant logins never
-# touch a cluster's OpenShift login. Rerun after adding an ingress spoke (Task 11).
+# touch a cluster's OpenShift login. Its tokens last 1 hour, the portal session's length: the proxy
+# can't hand a refreshed session back to the browser, because Authorino asks it on the browser's
+# behalf. Rerun after adding an ingress spoke (Task 11).
 source "$(dirname "$0")/lib.sh"
 ns=$KEYCLOAK_NS realm=ai-grid cid=maas-cli
 kchost=$(kc $HOST get configmap ai-grid-hub-info -n ai-grid-policies -o jsonpath='{.data.keycloakHost}')
@@ -24,7 +26,7 @@ for s in $SPOKES; do
 done
 id=$(api "$base/clients?clientId=$cid" | jq -re '.[0].id') || die "client $cid missing: realm ai-grid not imported (bootstrap/35-keycloak.sh)"
 api "$base/clients/$id" | jq '.standardFlowEnabled = true | .redirectUris = $ARGS.positional
-  | .attributes["pkce.code.challenge.method"] = "S256"' --args "${uris[@]}" \
+  | .attributes["pkce.code.challenge.method"] = "S256" | .attributes["access.token.lifespan"] = "3600"' --args "${uris[@]}" \
   | api -X PUT "$base/clients/$id" -d @- >/dev/null
 # Earlier designs (a cluster-login identity provider per spoke, then a confidential maas-portal
 # client) are gone: remove their clients and hub Secrets.

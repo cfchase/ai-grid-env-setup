@@ -51,6 +51,10 @@ uat "alice token: org1"      "the maas orgs mapper emits another shape (Step 2's
   bash -c "claims alice | jq -e '.\"https://redhat.com/maas/orgs\" | length == 1 and .[0].organization_name == \"org1\" and (.[0].organization_id | test(\"^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$\"))'"
 uat "alice token: groups"    "the groups mapper emits full paths (/org1-group1) or alice isn't in org1-group1" \
   bash -c "claims alice | jq -e '.groups | index(\"org1-group1\")'"
+# The portal's sign-in proxy can't hand a refreshed session back to the browser (Authorino asks it
+# on the browser's behalf), so a token must last the whole portal session: 1 hour.
+uat "alice token lasts the portal session" "client maas-cli's access.token.lifespan isn't 3600: rerun bootstrap/36-portal-clients.sh" \
+  bash -c "claims alice | jq -e '.exp - .iat == 3600'"
 uat "dave token: no groups"  "dave was given a group; he must stay in no subscription" \
   bash -c "claims dave | jq -e '(.groups // []) | length == 0'"
 # Keycloak answers 400 both for an unknown client and for a bad redirect URI; only the page text differs.
