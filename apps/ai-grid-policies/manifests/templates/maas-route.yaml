@@ -26,6 +26,19 @@ spec:
                         service.beta.openshift.io/serving-cert-secret-name: "maas-gw-service-tls"
                     spec:
                       type: ClusterIP
+                  # System CAs plus the service CA (Policy maas-gateway-ca), so the gateway can
+                  # originate TLS to the grid's consumer gateway.
+                  deployment: |
+                    spec:
+                      template:
+                        spec:
+                          volumes:
+                            - name: aigrid-ca
+                              configMap: { name: aigrid-gateway-ca-bundle }
+                          containers:
+                            - name: istio-proxy
+                              volumeMounts:
+                                - { name: aigrid-ca, mountPath: /etc/pki/tls/certs/ca-bundle.crt, subPath: ca-bundle.crt, readOnly: true }
             # The public entry point: maas.<this spoke's apps domain>, looked up on the spoke.
             - complianceType: musthave
               objectDefinition:
