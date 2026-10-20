@@ -130,6 +130,12 @@ model plumbing (the grid-backend Service, NetworkPolicy allow-grid-provider) sta
   `verify-full` would need the hub's CA as a file in the operator-owned maas-api pod.
 - **maas-api can't use a read replica,** and its egress NetworkPolicy may block a remote spoke from
   reaching the hub's Globalnet address. The replica pieces are groundwork until both change.
+- **Before the first remote ingress spoke, harden the replica groundwork** (security review,
+  2026-10-20; none of it runs on one cluster): Policy `maas-db-replication` copies the app login as
+  well as the replication certificate to each remote spoke (copy only what the replica needs); the
+  replica in `spokes/maas-db-replica` has no NetworkPolicy; and the hub's `maas-db-ingress` admits
+  all of Globalnet `242.0.0.0/8`, so any cluster in the set can reach port 5432 (narrow it to the
+  ingress spokes' Globalnet CIDRs).
 - **Metrics have one copy.** S4 runs one replica on one volume; losing the volume loses stored metrics.
 
 ## Fixes found along the way
