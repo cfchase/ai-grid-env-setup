@@ -1,0 +1,36 @@
+#!/usr/bin/env bash
+source "$(dirname "$0")/lib.sh"
+E2E_SPOKE=${E2E_SPOKE:-$(for s in $SPOKES; do [[ $(role_of $s) != inference ]] && { echo $s; break; }; done)}
+KC=$(kc $HOST get configmap ai-grid-hub-info -n ai-grid-policies -o jsonpath='{.data.keycloakHost}')
+MAAS=$(maas_url $E2E_SPOKE)
+TENANT_USER=${TENANT_USER:-alice}
+e2e_login() {
+  local pw tok
+  pw=$(kc $HOST get secret ai-grid-test-users -n $KEYCLOAK_NS -o jsonpath="{.data.$TENANT_USER}" | base64 -d)
+  tok=$(curl -sk -d grant_type=password -d client_id=maas-cli -d scope=openid -d username="$TENANT_USER" \
+    --data-urlencode password="$pw" "https://$KC/realms/ai-grid/protocol/openid-connect/token" | jq -r .access_token)
+  TOKEN=$tok
+  MODELS=$(curl -sk -H "Authorization: Bearer $tok" "$MAAS/maas-api/v1/models")
+  KEY=$(curl -sk -X POST -H "Authorization: Bearer $tok" -H 'Content-Type: application/json' \
+    -d '{"name":"aigrid-e2e","expiresIn":"1d"}' "$MAAS/maas-api/v1/api-keys" | jq -r .key)
+  URL=$(jq -r '.data[0].url' <<<"$MODELS")
+}
+e2e_complete() {
+  curl -sk -o out/e2e-completion.json -w '%{http_code}' -H "Authorization: Bearer $KEY" -H 'Content-Type: application/json' \
+    -d "{\"model\":\"facebook/opt-125m\",\"messages\":[{\"role\":\"user\",\"content\":\"Hello\"}],\"max_tokens\":$1}" "$URL/v1/chat/completions"
+}
+[[ -n "${E2E_LIB:-}" ]] && return 0   # sourced as a library: define functions only
+mkdir -p out
+e2e_login
+uat "keycloak token"  "Keycloak route or test user (Task 3's checks)" test -n "$TOKEN" -a "$TOKEN" != null
+uat "MaaS trusts the token" "AITenant oidc not set on $E2E_SPOKE (Policy tenant-oidc), or the issuer differs from Keycloak's" \
+  bash -c "curl -sk -o /dev/null -w '%{http_code}' -H 'Authorization: Bearer $TOKEN' $MAAS/maas-api/v1/models | grep -qx 200"
+uat "model listed"    "token valid but no subscription matches the user's groups (Review focus 4)" \
+  jq -e '.data[]|select(.id=="facebook/opt-125m" or .id=="'"$MODEL_NAME"'")' <<<"$MODELS"
+uat "api key minted"  "maas-api can't write keys: its database (Policy maas-db) or maas-api logs" test -n "$KEY" -a "$KEY" != null
+code=$(e2e_complete 8)
+uat "completion 200"  "got $code: 401/403 = key or subscription; 404/503 = MaaS can't reach grid-gateway.$GRID_NS.svc, or the grid has no healthy site; 400 = opt-125m chat template (Task 7, Step 2)" \
+  test "$code" = 200
+uat "completion text" "200 without content: the grid answered but vLLM returned nothing" jq -e '.choices[0].message.content' out/e2e-completion.json
+unset TOKEN KEY
+summary

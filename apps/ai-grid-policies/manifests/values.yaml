@@ -8,3 +8,4 @@ pullSecretMode: policy
 pullSecretRemediation: enforce
 portalIdpRemediation: inform
 gridNs: grid
+authorinoCARemediation: inform
