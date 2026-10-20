@@ -106,6 +106,9 @@ Each is in git with a comment where it applies; the plan's ledger has the detail
 - ACM 2.17 auto-encrypts hub-template `fromSecret` output: decode on the managed side
   (`| base64dec`), never add `protect`.
 - ACM `musthave` merges list items by `name`, so a Policy can set one field of one Gateway listener.
+  It also never removes list items: an object whose lists shrink (the portal proxy's `args`) uses
+  `mustonlyhave`, and a route whose `matches` shrink is replaced under a new name (`mustnothave` on
+  the old one).
 - Argo CD's Lua health checks have no `string` library; on an ACM hub `oc get application` means
   ACM's kind (use `applications.argoproj.io`).
 - Helm charts that hold ACM or ApplicationSet templates escape them as raw strings (``{{`{{...}}`}}``);
@@ -118,11 +121,18 @@ Each is in git with a comment where it applies; the plan's ledger has the detail
   gateway needs a CA bundle to reach the grid consumer over TLS; this nightly's ExternalProvider
   accepts only apikey auth and always dials HTTPS 443; MaaS routes by its own model ID, so the model
   is named `facebook-opt-125m` end to end; a valid user with no groups gets 500, not 403.
-- AWS load balancers carry no UDP, so the single-site grid's gossip Service is ClusterIP.
+- AWS load balancers carry no UDP, so the single-site grid's gossip Service is ClusterIP. An AWS
+  Network Load Balancer does carry UDP on demo.redhat.com (a UDP-only `LoadBalancer` Service with the
+  `nlb` annotation answered from the internet after about 4 minutes), but OpenShift 4.21's AWS
+  provider rejects a `LoadBalancer` Service that mixes UDP and TCP, so each protocol needs its own
+  Service.
+- The portal's sign-in proxy can't hand a refreshed session back to the browser (Authorino calls it
+  on the browser's behalf), so a session lasts the `maas-cli` client's 1-hour token; then the tenant
+  signs in again.
 - opt-125m has no chat template; KServe renders the LLMInferenceService through Go templates, so the
   template is escaped with raw strings.
 
 ## Known overrides of operator-owned objects
 
 - **Authorino Deployment** (`kuadrant-system/authorino`): Policy `authorino-service-ca` adds env `SSL_CERT_DIR` and, through the Authorino CR, a service-CA volume, so Authorino can call maas-api over HTTPS. The authorino operator owns the Deployment. If the Policy's compliance history flips between NonCompliant and Compliant (`kc host get policy ai-grid-policies.authorino-service-ca -n local-cluster -o yaml`, `status.details[].history`), the operator is reverting it.
-- **MaaS gateway** (`openshift-ingress`): Policy `maas-route` owns its parameters ConfigMap (ClusterIP Service, and a CA bundle from Policy `maas-gateway-ca` mounted over the proxy's CA file), sets the `https` listener's host name `maas.<apps domain>` (Argo CD ignores that field), copies the router's default certificate into `maas-gw-public-tls` for the listener, and owns the passthrough Route.
+- **MaaS gateway** (`openshift-ingress`): Policy `maas-route` owns its parameters ConfigMap (ClusterIP Service, and a CA bundle from Policy `maas-gateway-ca` mounted over the proxy's CA file), sets the `https` listener's host name `maas.<apps domain>` (Argo CD ignores that field), requests a cert-manager certificate for `maas.<apps domain>` only (`maas-gw-public-tls`, from the issuer of the router's own certificate; a copy of the router's certificate where cert-manager didn't issue it), and owns the passthrough Route. A wildcard certificate here would let browsers reuse the gateway's HTTP/2 connection for Keycloak and the console, which the gateway answers with 404.
