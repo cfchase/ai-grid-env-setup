@@ -4,7 +4,8 @@ kind: PersistentVolumeClaim
 metadata:
   name: s4-data
   namespace: open-cluster-management-observability
-  annotations: { argocd.argoproj.io/sync-wave: "0" }
+  # Same wave as its Deployment: gp3-csi binds only once a pod uses the claim.
+  annotations: { argocd.argoproj.io/sync-wave: "1" }
 spec:
   accessModes: [ReadWriteOnce]
   resources: { requests: { storage: 50Gi } }
