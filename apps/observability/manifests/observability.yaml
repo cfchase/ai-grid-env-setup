@@ -27,7 +27,8 @@ spec:
         default: { enabled: true }
 ---
 # OpenShift AI's metrics, federated from each spoke's data-science-collector (DSCI monitoring,
-# spokes/platform/values/common.yaml) by the spokes' metrics collectors.
+# spokes/platform/values/common.yaml) by the spokes' metrics collectors. ACM sends it to the spokes
+# only once the add-on's ClusterManagementAddOn lists it (Policy rhai-metrics-hub).
 apiVersion: monitoring.rhobs/v1alpha1
 kind: ScrapeConfig
 metadata:
@@ -42,4 +43,4 @@ spec:
     match[]: ['{__name__=~".*"}']
   scheme: HTTP
   staticConfigs:
-    - targets: [data-science-collector-collector.redhat-ods-monitoring.svc:8890]
+    - targets: [data-science-collector-monitoring.redhat-ods-monitoring.svc:8890]
