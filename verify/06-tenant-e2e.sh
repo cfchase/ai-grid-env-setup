@@ -13,8 +13,6 @@ e2e_login() {
   MODELS=$(curl -sk -H "Authorization: Bearer $tok" "$MAAS/maas-api/v1/models")
   KEY=$(curl -sk -X POST -H "Authorization: Bearer $tok" -H 'Content-Type: application/json' \
     -d '{"name":"aigrid-e2e","expiresIn":"1d"}' "$MAAS/maas-api/v1/api-keys" | jq -r .key)
-  # MaaS lists the gateway's in-cluster address (the listener carries no host name, which would
-  # put a real host in git), so call the public Route at the model's path instead.
   URL="$MAAS/models-as-a-service/$MODEL_NAME"
 }
 # MaaS routes by its own model ID (the MaaSModelRef name), not the upstream name facebook/opt-125m.
@@ -30,6 +28,8 @@ uat "MaaS trusts the token" "AITenant oidc not set on $E2E_SPOKE (Policy tenant-
   bash -c "curl -sk -o /dev/null -w '%{http_code}' -H 'Authorization: Bearer $TOKEN' $MAAS/maas-api/v1/models | grep -qx 200"
 uat "model listed"    "token valid but no subscription matches the user's groups (Review focus 4)" \
   jq -e '.data[]|select(.id=="facebook/opt-125m" or .id=="'"$MODEL_NAME"'")' <<<"$MODELS"
+uat "model URL is public" "MaaS listed an in-cluster address: the gateway listener has no host name (Policy maas-route sets it on the spoke)" \
+  jq -e --arg m "$MAAS" '[.data[]|select(.id=="'"$MODEL_NAME"'")|.url|startswith($m)]|any' <<<"$MODELS"
 uat "api key minted"  "maas-api can't write keys: its database (Policy maas-db) or maas-api logs" test -n "$KEY" -a "$KEY" != null
 code=$(e2e_complete 8)
 uat "completion 200"  "got $code: 401/403 = key or subscription; 404/503 = MaaS can't reach grid-gateway.$GRID_NS.svc, or the grid has no healthy site; 400 = opt-125m chat template (Task 7, Step 2)" \

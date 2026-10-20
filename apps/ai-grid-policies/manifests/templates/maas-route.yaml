@@ -12,8 +12,8 @@ spec:
         spec:
           severity: medium
           object-templates:
-            # The MaaS gateway's Service: ClusterIP, with a service-CA serving certificate the
-            # listener terminates TLS with (spokes/platform/values/ingress.yaml points at both).
+            # The MaaS gateway's Service is ClusterIP (spokes/platform/values/ingress.yaml points at
+            # this ConfigMap); the Route below is its public entry.
             - complianceType: musthave
               objectDefinition:
                 apiVersion: v1
@@ -21,9 +21,6 @@ spec:
                 metadata: { name: maas-gateway-options, namespace: openshift-ingress }
                 data:
                   service: |
-                    metadata:
-                      annotations:
-                        service.beta.openshift.io/serving-cert-secret-name: "maas-gw-service-tls"
                     spec:
                       type: ClusterIP
                   # System CAs plus the service CA (Policy maas-gateway-ca), so the gateway can
@@ -39,7 +36,21 @@ spec:
                             - name: istio-proxy
                               volumeMounts:
                                 - { name: aigrid-ca, mountPath: /etc/pki/tls/certs/ca-bundle.crt, subPath: ca-bundle.crt, readOnly: true }
-            # The public entry point: maas.<this spoke's apps domain>, looked up on the spoke.
+            # The public entry point: maas.<this spoke's apps domain>, looked up on the spoke. The
+            # listener carries the same host name, because MaaS reports it as its public address
+            # (model URLs, the portal's /v1/tenants discovery); git holds no host name. Only this
+            # field is set: ACM merges list items by name, and Argo CD ignores it.
+            - complianceType: musthave
+              objectDefinition:
+                apiVersion: gateway.networking.k8s.io/v1
+                kind: Gateway
+                metadata: { name: maas-default-gateway, namespace: openshift-ingress }
+                spec:
+                  listeners:
+                    - name: https
+                      hostname: {{`'maas.{{ (lookup "config.openshift.io/v1" "Ingress" "" "cluster").spec.domain }}'`}}
+            # Passthrough: the gateway terminates TLS itself, and its listener answers only the
+            # SNI maas.<domain>, which a re-encrypting router wouldn't send.
             - complianceType: musthave
               objectDefinition:
                 apiVersion: route.openshift.io/v1
@@ -49,7 +60,28 @@ spec:
                   host: {{`'maas.{{ (lookup "config.openshift.io/v1" "Ingress" "" "cluster").spec.domain }}'`}}
                   to: { kind: Service, name: maas-default-gateway-maas-gateway-class, weight: 100 }
                   port: { targetPort: 443 }
-                  tls: { termination: reencrypt, insecureEdgeTerminationPolicy: Redirect }
+                  tls: { termination: passthrough, insecureEdgeTerminationPolicy: Redirect }
+    # The listener's certificate: a copy of the router's default certificate (a wildcard for the
+    # apps domain), kept in step on every evaluation.
+    - objectDefinition:
+        apiVersion: policy.open-cluster-management.io/v1
+        kind: ConfigurationPolicy
+        metadata: { name: maas-gateway-cert }
+        spec:
+          severity: medium
+          object-templates-raw: |
+            {{`{{- $ic := lookup "operator.openshift.io/v1" "IngressController" "openshift-ingress-operator" "default" }}
+            {{- $name := "router-certs-default" }}
+            {{- if and $ic.spec (hasKey $ic.spec "defaultCertificate") }}{{ $name = $ic.spec.defaultCertificate.name }}{{ end }}
+            - complianceType: mustonlyhave
+              objectDefinition:
+                apiVersion: v1
+                kind: Secret
+                metadata: { name: maas-gw-public-tls, namespace: openshift-ingress }
+                type: kubernetes.io/tls
+                data:
+                  tls.crt: '{{ fromSecret "openshift-ingress" $name "tls.crt" }}'
+                  tls.key: '{{ fromSecret "openshift-ingress" $name "tls.key" }}'`}}
 ---
 apiVersion: policy.open-cluster-management.io/v1
 kind: PlacementBinding

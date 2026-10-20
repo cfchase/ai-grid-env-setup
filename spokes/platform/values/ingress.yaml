@@ -22,8 +22,9 @@ components:
       gateway:
         spec:
           # Exposed by an OpenShift Route rather than an AWS load balancer: Policy maas-route creates
-          # the parameters ConfigMap (ClusterIP Service with a serving certificate) and the Route,
-          # whose host maas.<apps domain> it looks up on the spoke, so no host name is in git.
+          # the parameters ConfigMap (ClusterIP Service), the passthrough Route, the listener's
+          # certificate, and the listener host name maas.<apps domain>, looked up on the spoke, so
+          # no host name is in git.
           infrastructure:
             parametersRef: { group: "", kind: ConfigMap, name: maas-gateway-options }
           listeners:
@@ -32,7 +33,7 @@ components:
               protocol: HTTPS
               tls:
                 mode: Terminate
-                certificateRefs: [{ group: "", kind: Secret, name: maas-gw-service-tls }]
+                certificateRefs: [{ group: "", kind: Secret, name: maas-gw-public-tls }]
               allowedRoutes:
                 namespaces:
                   from: Selector
