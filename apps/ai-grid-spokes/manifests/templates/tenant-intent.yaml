@@ -6,10 +6,7 @@ spec:
   goTemplateOptions: ["missingkey=error"]
   syncPolicy: { preserveResourcesOnDeletion: true }
   generators:
-    - clusters:
-        selector:
-          matchLabels: { apps.open-cluster-management.io/acm-cluster: "true", ai-grid/enabled: "true" }
-          matchExpressions: [{ key: ai-grid/role, operator: In, values: [ingress, combined] }]
+    {{- include "ai-grid-spokes.generators" (list "ingress" "combined") | nindent 4 }}
   template:
     metadata: { name: 'tenant-{{`{{.name}}`}}' }
     spec:
