@@ -1,6 +1,8 @@
 # Redis with Sentinel for Limitador's rate-limit counters, exported (Submariner) so every MaaS
-# gateway's Limitador can share them. No password yet: only Limitador and Redis's own pods reach it
-# (NetworkPolicy below).
+# gateway's Limitador can share them. Password-protected (auth.yaml), and only Limitador and Redis's
+# own pods reach it (NetworkPolicy below). Traffic from another cluster arrives from its Globalnet
+# address, which no rule here admits: sharing counters across clusters also needs an ipBlock rule
+# for the cluster set's Globalnet range (242.0.0.0/8).
 apiVersion: networking.k8s.io/v1
 kind: NetworkPolicy
 metadata:
@@ -25,12 +27,12 @@ metadata:
 spec:
   clusterSize: 3
   livenessProbe:
-    exec: { command: [redis-cli, -h, 127.0.0.1, -p, "6379", ping] }
+    exec: { command: [sh, -c, 'REDISCLI_AUTH="$REDIS_PASSWORD" redis-cli -h 127.0.0.1 -p 6379 ping | grep -qx PONG'] }
     periodSeconds: 10
     timeoutSeconds: 3
     failureThreshold: 3
   readinessProbe:
-    exec: { command: [redis-cli, -h, 127.0.0.1, -p, "6379", ping] }
+    exec: { command: [sh, -c, 'REDISCLI_AUTH="$REDIS_PASSWORD" redis-cli -h 127.0.0.1 -p 6379 ping | grep -qx PONG'] }
     periodSeconds: 10
     timeoutSeconds: 3
     failureThreshold: 3
@@ -39,6 +41,7 @@ spec:
   kubernetesConfig:
     image: registry.redhat.io/rhel9/redis-7@sha256:8e0c52a2f304473c1f62d1112e116e0e8d541ed9cbeea86f6ece3318146be105
     imagePullPolicy: IfNotPresent
+    redisSecret: { name: limitador-redis-auth, key: password }
     resources:
       requests: { cpu: 500m, memory: 1Gi }
       limits: { cpu: "4", memory: 8Gi }
@@ -51,6 +54,7 @@ spec:
     size: 3
     image: registry.redhat.io/rhel9/redis-7@sha256:8e0c52a2f304473c1f62d1112e116e0e8d541ed9cbeea86f6ece3318146be105
     imagePullPolicy: IfNotPresent
+    redisSecret: { name: limitador-redis-auth, key: password }
     resources:
       requests: { cpu: 50m, memory: 64Mi }
       limits: { cpu: 250m, memory: 128Mi }
