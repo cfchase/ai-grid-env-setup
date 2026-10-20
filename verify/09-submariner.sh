@@ -6,7 +6,10 @@ h=$HOST
 uat "broker with globalnet"  "Argo CD app ai-grid-spokes didn't create Broker submariner-broker in default-broker" \
   bash -c "kc $h get brokers.submariner.io submariner-broker -n default-broker -o jsonpath='{.spec.globalnetEnabled}' | grep -qx true"
 for s in $SPOKES; do
-  uat "$s submariner app"       "ApplicationSet ai-grid-submariner: no Application for $s (placement), or a sync error" app submariner-$s
+  # Synced only: with no second cluster there's no tunnel, so the add-on reports
+  # SubmarinerConnectionDegraded and Argo CD shows the app Degraded, by design.
+  uat "$s submariner app synced" "ApplicationSet ai-grid-submariner: no Application for $s (placement), or a sync error" \
+    bash -c "kc $h get applications.argoproj.io submariner-$s -n openshift-gitops -o jsonpath='{.status.sync.status}' | grep -qx Synced"
   uat "$s gateway nodes policy" "Policy submariner-gateway-nodes not Compliant on $s" pol $s submariner-gateway-nodes
   uat "$s two gateway nodes"    "fewer than two nodes whose only role is worker: Submariner's two gateways need them" \
     bash -c "[ \$(kc $s get nodes -l submariner.io/gateway=true --no-headers | wc -l) -ge 2 ]"
