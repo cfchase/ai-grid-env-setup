@@ -1,5 +1,5 @@
 SHELL := /bin/bash
-.PHONY: hub spokes all verify teardown
+.PHONY: hub spokes all verify console teardown
 # Run hack/quay-env.sh once first. Every script is safe to rerun.
 hub:
 	bash bootstrap/00-gitops.sh
@@ -15,5 +15,8 @@ spokes:
 all: hub spokes
 verify:
 	@rc=0; for f in verify/[0-9]*.sh; do echo "== $$f"; bash $$f || rc=1; done; exit $$rc
+# The provider console (Task 9): Argo CD app console builds and deploys it; this adds its secrets.
+console:
+	bash bootstrap/60-console.sh
 teardown:
 	bash bootstrap/99-teardown.sh
