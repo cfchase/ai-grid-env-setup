@@ -57,6 +57,25 @@ with, so the Applications stayed. The spoke ApplicationSets now take membership 
 `ai-grid-spokes` (a `clusterDecisionResource` matrix). The role still comes from the cluster Secret's
 labels, so changing a spoke's role may need its Secret refreshed (untested).
 
+**Spoke uninstall** (`CONFIRM=<spoke> bash bootstrap/98-uninstall-spoke.sh <spoke>`): removes a spoke's AI
+Grid layer so relabelling provisions it from zero. It saves the Applications' inventory to
+`out/uninstall-<spoke>.txt` before unlabelling (a rerun reuses it), deletes tenant intent, the model and
+the grid's objects, then the MaaS objects that carry cleanup finalizers while OpenShift AI's controllers
+still run, then OpenShift AI and MaaS, their operators, the nightly catalog and the namespaces. It keeps
+the hub's services and grid site identity (`grid` stays on `local-cluster`), the node pull secret and
+image mirror (changing them reboots nodes), cert-manager and CRDs.
+
+**Rebuilds on `aio`** (2026-10-19/20):
+- Delivery rebuild: `make teardown` (26 s; every Application and Policy gone, workloads and the tenant
+  end-to-end path still working), then `make all`: 14/14 apps healthy, all Policies Compliant,
+  `make verify` 105/105.
+- Spoke rebuild: the uninstall above, then `bash bootstrap/40-spoke.sh`: the OpenShift AI operator
+  installed in 2 min, DSC Ready at 3.5 min, all six spoke apps healthy at under 5 min, `make verify`
+  105/105. Faster than the first build (about 20 min) because images, CRDs and the node pull secret
+  were already there. The first uninstall run stopped on two script bugs, both fixed: tab-separated
+  inventory fields collapsed, and MaaSTenantConfig and AITenant kept their cleanup finalizers after
+  their controllers were removed (now deleted first; this run's two finalizers were cleared by hand).
+
 **Rebuild drill** (Task 8 Step 5): not run. It needs a fresh demo.redhat.com order and `build` merged
 to `ai-grid-cloud/ai-grid-env-setup` `main`.
 
