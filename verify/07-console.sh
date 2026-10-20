@@ -35,4 +35,9 @@ uat "backend reads ai-grid-ready" "Role ai-grid-provider-console-backend in ai-g
   bash -c "want=yes can get policies.policy.open-cluster-management.io/ai-grid-ready -n ai-grid-policies"
 uat "backend can't read Policy copies" "the backend may read per-cluster Policies, whose hub templates hold rendered secrets" \
   bash -c "want=no can list policies.policy.open-cluster-management.io -A && want=no can get policies.policy.open-cluster-management.io -n local-cluster"
+# patch also reaches spec, finalizers and other labels; an admission policy limits the backend to its own keys.
+uat "backend may set only AI Grid labels" "ValidatingAdmissionPolicy ai-grid-provider-console-backend missing or not bound (apps/console/manifests)" \
+  bash -c "! kc $HOST label managedcluster local-cluster ai-grid-verify/denied=true --dry-run=server --as=$sa >/dev/null 2>&1 \
+    && ! kc $HOST patch managedcluster local-cluster --type=merge -p '{\"spec\":{\"leaseDurationSeconds\":61}}' --dry-run=server --as=$sa >/dev/null 2>&1 \
+    && kc $HOST label managedcluster local-cluster ai-grid/verify=true --dry-run=server --as=$sa >/dev/null"
 summary

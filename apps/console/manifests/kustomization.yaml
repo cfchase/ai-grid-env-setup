@@ -9,6 +9,7 @@ resources:
   # a change to what runs on the hub is a reviewed commit here. Bump it with builds.yaml's refs.
   - https://github.com/ai-grid-cloud/ai-grid-provider-console//manifests/base?ref=ac80c25fb06f3818d248261c3a91cdf46b70052a
   - builds.yaml
+  - admission.yaml
 # Where the bff and backend images come from: in-cluster builds (default), or ghcr.io sha tags once the
 # ghcr workflows merge. Switch by changing this one line to ./images/ghcr (set its two tags first).
 components:
@@ -27,7 +28,8 @@ patches:
         path: /spec/template/spec/containers/2/args/-
         value: --http-listen-address=127.0.0.1:8081
   # Add to AI Grid and Remove patch ManagedCluster labels; the backend never creates or deletes
-  # clusters. Its read of the ai-grid-ready Policy is a Role in apps/ai-grid-policies.
+  # clusters, and admission.yaml limits which labels and annotations it may touch. Its read of the
+  # ai-grid-ready Policy is a Role in apps/ai-grid-policies.
   - target: { kind: ClusterRole, name: ai-grid-provider-console-backend }
     patch: |
       - { op: test, path: /rules/0/resources/0, value: managedclusters }
