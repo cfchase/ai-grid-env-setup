@@ -34,7 +34,7 @@ while read -r u org grp; do
   id=$(api "$base/users?username=$u&exact=true" | jq -r '.[0].id // empty')
   pw=$(kc $HOST get secret ai-grid-test-users -n $ns -o jsonpath="{.data.$u}" 2>/dev/null | base64 -d)
   pw=${pw:-$(openssl rand -base64 18)}
-  oid=$(api "$base/organizations?search=$org&exact=true" | jq -r '.[0].id')   # a UUID, which MaaS requires
+  oid=$(api "$base/organizations?search=$org&exact=true" | jq -re '.[0].id') || die "organization $org not found in realm $realm"   # a UUID, which MaaS requires
   body=$(PW=$pw jq -n --arg u "$u" --arg org "$org" --arg oid "$oid" '{username: $u, enabled: true, emailVerified: true,
     email: ($u + "@" + $org + ".example.com"), firstName: $u, lastName: $org,
     attributes: { maas_orgs: [([{organization_id: $oid, organization_name: $org, roles: ["member"]}] | tojson)] },

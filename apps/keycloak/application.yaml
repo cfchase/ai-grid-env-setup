@@ -1,6 +1,6 @@
 # One Argo CD Application per apps/*/application.yaml.
 # The root ApplicationSet (bootstrap/applicationset.yaml) supplies the repository, revision,
-# and path apps/acm/manifests; this file supplies the rest.
+# and path apps/keycloak/manifests; this file supplies the rest.
 metadata:
   name: keycloak
   namespace: openshift-gitops

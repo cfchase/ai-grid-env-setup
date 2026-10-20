@@ -6,8 +6,11 @@ uat "app ai-grid-spokes"     "Argo CD app not Synced/Healthy: a Helm render erro
 uat "app ai-grid-policies synced" "a Helm render error (an unescaped {{ }}) in apps/ai-grid-policies" \
   bash -c "kc $h get applications.argoproj.io ai-grid-policies -n openshift-gitops -o jsonpath='{.status.sync.status}' | grep -qx Synced"
 for a in ai-grid-spokes ai-grid-policies; do
-  uat "$a keeps ACM/AppSet templates" "a {{ ... }} meant for ACM or an ApplicationSet wasn't wrapped as a Helm raw string (Step 0)" \
-    bash -c "helm template x apps/$a/manifests --set gitRepo=r --set gitRef=b | grep -qE '\{\{ *(hub|\.name|index|fromSecret|fromConfigMap)'"
+  # ApplicationSet and ACM expressions must sit inside Helm raw strings ({{`...`}}); unescaped, Helm
+  # renders them to nothing without an error. Strip the raw strings, then look for any that remain.
+  uat "$a keeps ACM/AppSet templates" "an ApplicationSet or ACM {{ ... }} outside a Helm raw string ({{\`...\`}}) in apps/$a" \
+    bash -c "! perl -0777 -ne 's/\\{\\{\\x60.*?\\x60\\}\\}//gs; print \"\$ARGV\\n\" if /\\{\\{-?\\s*(\\.name|\\.server|\\.metadata|index |hub|fromSecret|fromConfigMap|lookup|randAlphaNum|\\.ManagedClusterName)/' apps/$a/manifests/templates/*.yaml | grep ."
+
 done
 for s in $SPOKES; do
   r=$(role_of $s)
@@ -52,7 +55,7 @@ done
 for s in $SPOKES; do
   [[ $(role_of $s) == inference ]] && continue
   uat "$s tenant app"     "spokes/tenant render error, or a MaaS CRD missing (DSC not Ready)" app tenant-$s
-  uat "$s MaaSModelRef Ready" "ExternalProvider can't reach grid-gateway.$GRID_NS.svc:8080, or no subscription and auth policy pair" \
+  uat "$s MaaSModelRef Ready" "ExternalProvider can't reach grid-gateway.$GRID_NS.svc:443, or no subscription and auth policy pair" \
     bash -c "kc $s get maasmodelref $MODEL_NAME -n models-as-a-service -o jsonpath='{.status.phase}' | grep -qx Ready"
 done
 summary

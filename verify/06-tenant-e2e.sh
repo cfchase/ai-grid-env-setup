@@ -34,6 +34,6 @@ uat "api key minted"  "maas-api can't write keys: its database (Policy maas-db) 
 code=$(e2e_complete 8)
 uat "completion 200"  "got $code: 401/403 = key or subscription; 404/503 = MaaS can't reach grid-gateway.$GRID_NS.svc, or the grid has no healthy site; 400 = opt-125m chat template (Task 7, Step 2)" \
   test "$code" = 200
-uat "completion text" "200 without content: the grid answered but vLLM returned nothing" jq -e '.choices[0].message.content' out/e2e-completion.json
+uat "completion text" "200 without content: the grid answered but vLLM returned nothing" jq -e '.choices[0].message.content | length > 0' out/e2e-completion.json
 unset TOKEN KEY
 summary
