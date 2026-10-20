@@ -32,7 +32,9 @@ spec:
                 type: Opaque
                 data:
                   cookieSecret: '{{ if $s }}{{ $s.data.cookieSecret }}{{ else }}{{ randAlphaNum 32 | base64enc }}{{ end }}'
-            - complianceType: musthave
+            # mustonlyhave: musthave adds list items but never removes them, so a dropped flag
+            # would stay in args.
+            - complianceType: mustonlyhave
               objectDefinition:
                 apiVersion: apps/v1
                 kind: Deployment
