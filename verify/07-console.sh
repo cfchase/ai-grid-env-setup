@@ -8,8 +8,19 @@ host=$(kc $HOST get route $name -n $ns -o jsonpath='{.spec.host}' 2>/dev/null)
 build_ok() { [[ $(kc $HOST get builds -n $ns -l buildconfig=$1 --sort-by=.metadata.creationTimestamp -o jsonpath='{.items[-1:].status.phase}') == Complete ]]; }
 export -f build_ok; export ns name
 uat "app console"         "Argo CD app not Synced/Healthy: the remote kustomize base, or the pod (secrets from bootstrap/60-console.sh)" app console
-uat "console image built" "BuildConfig ai-grid-provider-console: oc logs -n $ns bc/ai-grid-provider-console" build_ok ai-grid-provider-console
-uat "backend image built" "BuildConfig ai-grid-backend: oc logs -n $ns bc/ai-grid-backend" build_ok ai-grid-backend
+# The pod runs exactly the images git pins (component images/ghcr by default, images/in-cluster as fallback).
+pinned=$(oc kustomize "$(dirname "$0")/../apps/console/manifests" 2>/dev/null | yq 'select(.kind=="Deployment").spec.template.spec.containers[] | select(.name=="bff" or .name=="ai-grid-backend") | .image')
+live=$(kc $HOST get deploy $name -n $ns -o json | jq -r '.spec.template.spec.containers[] | select(.name=="bff" or .name=="ai-grid-backend") | .image')
+export pinned live
+uat "console runs the pinned images" "Argo CD app console not synced to git's image tags, or the render failed (oc kustomize apps/console/manifests)" \
+  bash -c '[[ -n $pinned && $pinned == "$live" ]]'
+if grep -q '^  - ./images/in-cluster' "$(dirname "$0")/../apps/console/manifests/kustomization.yaml"; then
+  uat "console image built" "BuildConfig ai-grid-provider-console: oc logs -n $ns bc/ai-grid-provider-console" build_ok ai-grid-provider-console
+  uat "backend image built" "BuildConfig ai-grid-backend: oc logs -n $ns bc/ai-grid-backend" build_ok ai-grid-backend
+else
+  uat "console images pull" "ghcr.io package private (make it Public) or tag missing: kc host get pods -n $ns" \
+    bash -c "! kc $HOST get pods -n $ns -l app.kubernetes.io/name=$name -o json | jq -e '[.items[].status.containerStatuses[]?.state.waiting.reason // empty] | map(select(test(\"ImagePull|ErrImage\"))) | length > 0' >/dev/null"
+fi
 uat "console pod ready"   "secrets missing (bootstrap/60-console.sh), or the BFF's /readyz can't ping the backend" \
   kc $HOST rollout status deploy/$name -n $ns --timeout=5s
 uat "backend REST on loopback" "the backend's REST gateway listens on the pod network without authentication" \

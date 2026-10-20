@@ -10,10 +10,10 @@ resources:
   - https://github.com/ai-grid-cloud/ai-grid-provider-console//manifests/base?ref=ac80c25fb06f3818d248261c3a91cdf46b70052a
   - builds.yaml
   - admission.yaml
-# Where the bff and backend images come from: in-cluster builds (default), or ghcr.io sha tags once the
-# ghcr workflows merge. Switch by changing this one line to ./images/ghcr (set its two tags first).
+# Where the bff and backend images come from: ghcr.io sha tags (default; bump in images/ghcr), or, as a
+# fallback for work not published yet, in-cluster builds: change this line to ./images/in-cluster.
 components:
-  - ./images/in-cluster
+  - ./images/ghcr
 images:
   - { name: quay.io/opendatahub/odh-kube-auth-proxy, digest: "sha256:1a5f6e220362aa2077026bb7e3091c38f80aac861fa060b08045e58e783d5bc5" }
 patches:

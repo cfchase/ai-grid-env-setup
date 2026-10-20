@@ -1,5 +1,5 @@
-# Images built on the hub into its internal registry until GitHub Actions publish them to
-# ghcr.io/ai-grid-cloud. Each builds a pinned commit (the console's matches kustomization.yaml). The
+# Fallback (component images/in-cluster): images built on the hub into its internal registry, for work
+# not yet published to ghcr.io/ai-grid-cloud. Each builds a pinned commit (the console's matches kustomization.yaml). The
 # nodes are linux/amd64, so the images are too. Rebuild after bumping a ref: oc start-build <name> -n ai-grid, then
 # oc rollout restart deploy/ai-grid-provider-console -n ai-grid.
 apiVersion: image.openshift.io/v1
