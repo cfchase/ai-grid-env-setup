@@ -23,6 +23,10 @@ spec:
         # carries sub and preferred_username, which MaaS reads as the user's name.
         protocolMappers:
           - { name: sub, protocol: openid-connect, protocolMapper: oidc-sub-mapper, config: { access.token.claim: "true", introspection.token.claim: "true" } }
+          - name: email
+            protocol: openid-connect
+            protocolMapper: oidc-usermodel-attribute-mapper
+            config: { user.attribute: email, claim.name: email, jsonType.label: String, id.token.claim: "true", access.token.claim: "true", userinfo.token.claim: "true" }
           - name: username
             protocol: openid-connect
             protocolMapper: oidc-usermodel-attribute-mapper

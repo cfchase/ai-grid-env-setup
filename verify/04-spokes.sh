@@ -2,7 +2,7 @@
 source "$(dirname "$0")/lib.sh"
 h=$HOST
 uat "app ai-grid-spokes"     "Argo CD app not Synced/Healthy: a Helm render error (an unescaped {{ }}) or a sync retry" app ai-grid-spokes
-# Synced only: an inform Policy (tenant-portal-idp until Task 7) is NonCompliant by design, which Argo CD shows as Degraded.
+# Synced only: a Policy still in inform is NonCompliant by design, which Argo CD shows as Degraded.
 uat "app ai-grid-policies synced" "a Helm render error (an unescaped {{ }}) in apps/ai-grid-policies" \
   bash -c "kc $h get applications.argoproj.io ai-grid-policies -n openshift-gitops -o jsonpath='{.status.sync.status}' | grep -qx Synced"
 for a in ai-grid-spokes ai-grid-policies; do
@@ -33,8 +33,7 @@ for s in $SPOKES; do
     uat "$s maas-db policy"   "CNPG Secret maas-db-app missing on the hub (Task 2), or the hub template didn't resolve" \
       bash -c "kc $h get policy maas-db.maas-db -n $s -o jsonpath='{.status.compliant}' | grep -qx Compliant"
     uat "$s tenant-oidc policy" "hub ConfigMap ai-grid-hub-info missing (Task 3), or AITenant not created yet" pol $s tenant-oidc
-    uat "$s portal idp policy rendered" "hub Secret portal-idp-$s missing (Task 3, Step 3), or the hub template failed: kc host get policy ai-grid-policies.tenant-portal-idp -n $s -o yaml" \
-      bash -c "kc $h get policy ai-grid-policies.tenant-portal-idp -n $s -o jsonpath='{.status.compliant}' | grep -qE '^(Compliant|NonCompliant)$'"
+    uat "$s tenant-portal policy" "still inform, hub Secret maas-portal-oidc missing (bootstrap/36-portal-clients.sh), or a template error: kc host get policy ai-grid-policies.tenant-portal -n $s -o yaml" pol $s tenant-portal
     uat "$s maas-api ready"   "maas-db-config not on the spoke, or the hub database unreachable from it (kc $s logs deploy/maas-api -n redhat-ai-gateway-infra)" \
       kc $s rollout status deploy/maas-api -n redhat-ai-gateway-infra --timeout=5s
     maas=$(maas_url $s)

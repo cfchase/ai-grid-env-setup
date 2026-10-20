@@ -53,12 +53,14 @@ uat "alice token: groups"    "the groups mapper emits full paths (/org1-group1) 
   bash -c "claims alice | jq -e '.groups | index(\"org1-group1\")'"
 uat "dave token: no groups"  "dave was given a group; he must stay in no subscription" \
   bash -c "claims dave | jq -e '(.groups // []) | length == 0'"
+uat "portal client secret"   "bootstrap/36-portal-clients.sh didn't run, or the Keycloak admin login failed" \
+  bash -c "kc $h get secret maas-portal-oidc -n ai-grid-policies -o jsonpath='{.data.clientSecret}' | grep -q ."
 for s in $SPOKES; do
   [[ $(role_of $s) == inference ]] && continue
-  uat "portal client $s"     "bootstrap/36-portal-clients.sh didn't run, or the Keycloak admin login failed" \
-    bash -c "kc $h get secret portal-idp-$s -n ai-grid-policies -o jsonpath='{.data.clientSecret}' | grep -q ."
-  uat "portal redirect $s"   "client ocp-$s rejects the spoke's OAuth callback: its redirect URI or the spoke's apps domain changed" \
+  uat "portal redirect $s"   "client maas-portal rejects $s's portal callback: rerun bootstrap/36-portal-clients.sh after adding a spoke or a domain change" \
     bash -c "d=\$(kc $s get ingresses.config cluster -o jsonpath='{.spec.domain}'); \
-      curl -s -o /dev/null -w '%{http_code}' \"https://$kchost/realms/ai-grid/protocol/openid-connect/auth?client_id=ocp-$s&response_type=code&scope=openid&redirect_uri=https%3A%2F%2Foauth-openshift.\$d%2Foauth2callback%2Fai-grid\" | grep -qx 200"
+      curl -s -o /dev/null -w '%{http_code}' \"https://$kchost/realms/ai-grid/protocol/openid-connect/auth?client_id=maas-portal&response_type=code&scope=openid&redirect_uri=https%3A%2F%2Fmaas.\$d%2Foauth2%2Fcallback\" | grep -qx 200"
+  uat "no login client ocp-$s" "a cluster-login client from the old portal design is left: rerun bootstrap/36-portal-clients.sh" \
+    bash -c "curl -s -o /dev/null -w '%{http_code}' 'https://$kchost/realms/ai-grid/protocol/openid-connect/auth?client_id=ocp-$s&response_type=code&scope=openid&redirect_uri=https%3A%2F%2Fx' | grep -qx 400"
 done
 summary

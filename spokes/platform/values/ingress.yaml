@@ -38,5 +38,6 @@ components:
                   from: Selector
                   selector:
                     matchExpressions:
-                      # MaaS models in a grid are ExternalModels pointing at the grid gateway.
-                      - { key: kubernetes.io/metadata.name, operator: In, values: [openshift-ingress, models-as-a-service, redhat-ai-gateway-infra] }
+                      # MaaS models in a grid are ExternalModels pointing at the grid gateway;
+                      # aigrid-portal-auth holds the MaaS Portal's sign-in routes (Policy tenant-portal).
+                      - { key: kubernetes.io/metadata.name, operator: In, values: [openshift-ingress, models-as-a-service, redhat-ai-gateway-infra, aigrid-portal-auth] }
