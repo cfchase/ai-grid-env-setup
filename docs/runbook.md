@@ -52,6 +52,11 @@ console and the databases, and no OpenShift AI.
 
 | Step | Command | What happens | Time |
 |---|---|---|---|
+| a | `make spoke-gpu SPOKE=<name>` (optional) | a GPU MachineSet cloned from one of the spoke's workers, against `$KUBEDIR/<name>`: `GPU_INSTANCE_TYPE` (default `g6.xlarge`, NVIDIA L4), 1 replica, the clone's zone (`GPU_AZ` picks another), label `node-role.kubernetes.io/gpu`, taint `nvidia.com/gpu:NoSchedule`; waits for the node, and prints the Machine's own error if AWS refuses it (capacity, unsupported type). `DRY_RUN=1` prints the MachineSet. Remove with `make spoke-gpu-delete SPOKE=<name>`. Ported from rhoai-nightly | 5 to 15 min |
+| b | `make spoke-cpu SPOKE=<name>` (optional) | the same for a CPU worker MachineSet (`CPU_INSTANCE_TYPE` `m6a.4xlarge`, `CPU_REPLICAS` 1), when the spoke needs room; `make spoke-cpu-delete` removes it | 5 to 15 min |
+| c | `make spoke-infra SPOKE=<name>` | GPU node (a), plus the CPU worker (b) when `CPU=1`. No mirror or user-workload-monitoring step: ACM Policies deliver those after the Add | – |
+| d | `oc label managedcluster <name> ai-grid/gpu=true` on the hub | delivers Node Feature Discovery and the NVIDIA GPU operator (app `gpu-<name>`), independent of `ai-grid/enabled`: a spoke prerequisite, not part of AI Grid. Needs a GPU node (a) to do anything | operators a few min, driver build on the node about 10 min |
+| e | `make spoke-join SPOKE=<name>` (on the hub) | steps 1 to 3 below in one go: import, ensures `invites.<name>` and `spokes/clusters/<name>/models` (created if missing, never committed), `36-portal-clients.sh` for every spoke invited in git, plus `local-cluster` while it's a member (a spoke whose kubeconfig isn't in `$KUBEDIR` is logged and left out); prints the `git add/commit/push` you run | about 1 min |
 | 1 | `SPOKES="local-cluster site-a" bash bootstrap/45-import.sh` (kubeconfig at `$KUBEDIR/site-a`) | ManagedCluster `site-a`, no `ai-grid/*` labels: importing gives no grid membership and no network yet | joined 13 s |
 | 2 | add `invites.<site>` to `apps/grid-enrollment/manifests/values.yaml` and `spokes/clusters/<site>/models`, commit | the invite Job mints a 24 h token; ACM delivers it to the site | about 1 min |
 | 3 | `SPOKES="… site-a" bash bootstrap/36-portal-clients.sh` | `maas-cli` takes the site's portal callback | seconds |
