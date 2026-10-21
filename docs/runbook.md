@@ -43,6 +43,21 @@ backend addresses (`modelBackendIP`, `providerIP`) assume the default `172.30.0.
 `make all` is `hub` then `spokes`; it doesn't add any cluster to the grid. Every script is safe to rerun (`make all` on the built hub,
 2026-10-19: no changes, `make verify` ALL PASS).
 
+### Upgrading realm ai-grid to the broker
+
+The Keycloak operator imports a realm only when it doesn't exist, so a hub whose realm `ai-grid`
+predates the broker (random organization IDs, groups `org1-group1`, no identity providers) keeps it,
+and `bootstrap/35-keycloak.sh` stops with these steps. Deleting the realm drops everything written into
+it: its users, the console backend's user, and `maas-cli`'s portal callbacks, so the last step writes
+them again. Done on `demo1` on 2026-10-21.
+
+1. Delete realm `ai-grid` through the admin API (`DELETE /admin/realms/ai-grid`, with a token from realm
+   `master`), or from the admin console's realm settings.
+2. `oc delete keycloakrealmimport ai-grid -n keycloak`. Argo CD recreates it and the operator imports the
+   realm from git, alongside `org1-idp` and `org2-idp`.
+3. `bash bootstrap/35-keycloak.sh && bash bootstrap/36-portal-clients.sh && bash bootstrap/60-console.sh`
+   (with the usual `SPOKES` for 36), then `make verify`.
+
 ### A remote spoke, and a hub without OpenShift AI
 
 Built 2026-10-21 on two demo.redhat.com clusters (OpenShift 4.21, AWS, same region, same pod and
