@@ -42,3 +42,20 @@ spec:
 ---
 {{ include "ai-grid.network-placement" . }}
 {{- end }}
+{{- /* Clusters Argo CD must know: the network's, plus the GPU-labelled ones, which can be outside the
+       grid (templates/gpu.yaml). Kept apart from ai-grid-network, which also puts a cluster on Submariner. */ -}}
+{{- range list "openshift-gitops" }}
+---
+apiVersion: cluster.open-cluster-management.io/v1beta1
+kind: Placement
+metadata: { name: ai-grid-argocd, namespace: {{ . }} }
+spec:
+  clusterSets: [default]
+  predicates:
+    - requiredClusterSelector: { labelSelector: { matchLabels: { name: local-cluster } } }
+    - requiredClusterSelector: { labelSelector: { matchLabels: { ai-grid/enabled: "true" } } }
+    - requiredClusterSelector: { labelSelector: { matchLabels: { ai-grid/gpu: "true" } } }
+  tolerations:
+    - { key: cluster.open-cluster-management.io/unreachable, operator: Exists }
+    - { key: cluster.open-cluster-management.io/unavailable, operator: Exists }
+{{- end }}

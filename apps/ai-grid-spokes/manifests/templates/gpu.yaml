@@ -1,0 +1,55 @@
+{{- /* NFD and the NVIDIA GPU operator on ManagedClusters labelled ai-grid/gpu=true, independent of
+       ai-grid/enabled (Daniele Zonca: the GPU operator is a spoke prerequisite, not part of AI Grid).
+       Its own release (rhai-gpu), values and CRs: nothing it renders overlaps platform-<spoke>. */ -}}
+apiVersion: cluster.open-cluster-management.io/v1beta1
+kind: Placement
+metadata: { name: ai-grid-gpu, namespace: openshift-gitops }
+spec:
+  clusterSets: [default]
+  predicates:
+    - requiredClusterSelector: { labelSelector: { matchLabels: { ai-grid/gpu: "true" } } }
+  tolerations:
+    - { key: cluster.open-cluster-management.io/unreachable, operator: Exists }
+    - { key: cluster.open-cluster-management.io/unavailable, operator: Exists }
+---
+apiVersion: argoproj.io/v1alpha1
+kind: ApplicationSet
+metadata: { name: ai-grid-gpu, namespace: openshift-gitops }
+spec:
+  goTemplate: true
+  goTemplateOptions: ["missingkey=error"]
+  syncPolicy: { preserveResourcesOnDeletion: true }
+  generators:
+    # Like ai-grid-spokes.generators, but following the ai-grid-gpu placement.
+    - matrix:
+        generators:
+          - clusterDecisionResource:
+              configMapRef: acm-placement
+              labelSelector: { matchLabels: { cluster.open-cluster-management.io/placement: ai-grid-gpu } }
+              requeueAfterSeconds: 60
+          - clusters:
+              selector:
+                matchLabels: { apps.open-cluster-management.io/acm-cluster: "true", name: '{{`{{.clusterName}}`}}' }
+  template:
+    metadata: { name: 'gpu-{{`{{.name}}`}}' }
+    spec:
+      project: default
+      sources:
+        - repoURL: https://github.com/opendatahub-io/odh-gitops.git
+          targetRevision: "{{ .Values.odhGitopsRef }}"
+          path: charts/rhai-on-openshift-chart
+          helm:
+            releaseName: rhai-gpu
+            valueFiles: [$values/spokes/gpu/values/gpu.yaml]
+        - repoURL: {{ required "gitRepo" .Values.gitRepo }}
+          targetRevision: {{ required "gitRef" .Values.gitRef }}
+          ref: values
+        # The NFD and ClusterPolicy CRs, which wait for the operators' CRDs (retry below).
+        - repoURL: {{ required "gitRepo" .Values.gitRepo }}
+          targetRevision: {{ required "gitRef" .Values.gitRef }}
+          path: spokes/gpu/crs
+      destination: { server: '{{`{{.server}}`}}' }
+      syncPolicy:
+        automated: { prune: true, selfHeal: true }
+        retry: { limit: -1, backoff: { duration: 30s, factor: 2, maxDuration: 10m } }
+        syncOptions: [CreateNamespace=true, SkipDryRunOnMissingResource=true]

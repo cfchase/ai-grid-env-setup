@@ -75,7 +75,7 @@ if [[ $s != local-cluster ]]; then
 fi
 for _ in $(seq 1 24); do
   # Submariner's app follows the network, not the grid: the hub's stays (removed below for a remote spoke).
-  [[ -z $(kc $HOST get applications.argoproj.io -n openshift-gitops -o name | grep -- "-$s$" | grep -v "/submariner-") ]] && break; sleep 5
+  [[ -z $(kc $HOST get applications.argoproj.io -n openshift-gitops -o name | grep -- "-$s$" | grep -v "/submariner-" | grep -v "/gpu-") ]] && break; sleep 5
 done
 
 log "tenant intent and the model"

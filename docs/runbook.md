@@ -82,7 +82,7 @@ Lighthouse imports a Service only into a namespace that exists on the importing 
 `clusterset-namespaces`); maas-api's own egress policy admits 5432 only to in-cluster postgres
 (Policy `maas-db` adds the hub database's Globalnet address); the Cluster Observability Operator
 (the platform app installs it on every spoke but `local-cluster`); Argo CD must know a cluster
-before an ApplicationSet can target it (GitOpsCluster follows `ai-grid-network`); the grid chart's
+before an ApplicationSet can target it (GitOpsCluster follows `ai-grid-argocd`: the network plus `ai-grid/gpu` clusters); the grid chart's
 invite Policy deadlocks Argo CD's PostSync hooks (a Policy health check); odh-model-controller's
 stale `<gateway>-authn-ssl` EnvoyFilters (Policy `authorino-service-ca` removes them); and Argo CD's
 controller needs 8Gi once it caches a second cluster.
@@ -197,6 +197,7 @@ model plumbing (the grid-backend Service, NetworkPolicy allow-grid-provider) sta
   hangs, `kc host patch applications.argoproj.io submariner-<spoke> -n openshift-gitops --type json
   -p '[{"op":"remove","path":"/metadata/finalizers"}]'`. Remove taking a spoke off the network is
   designed but not yet verified on a cluster.
+- **GPU operators: what's still unverified.** `spokes/gpu` ran on a g6.xlarge (L4) spoke on 2026-10-21: NFD found the card, the operator built driver 580.105.08, the ClusterPolicy reached `ready`, and the node offered `nvidia.com/gpu: 1`. Not run: g6e (L40S) nodes. The DCGM ServiceMonitor is scraped only with the label `openshift.io/cluster-monitoring=true` on namespace `nvidia-gpu-operator`, which nothing sets.
 - **Metrics have one copy.** S4 runs one replica on one volume; losing the volume loses stored metrics.
 
 ## Fixes found along the way
