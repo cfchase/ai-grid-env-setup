@@ -1,5 +1,5 @@
 SHELL := /bin/bash
-.PHONY: login hub spokes all verify console teardown spoke-gpu spoke-gpu-delete spoke-cpu spoke-cpu-delete spoke-infra spoke-join
+.PHONY: login hub spokes all verify console teardown spoke-gpu spoke-gpu-delete spoke-cpu spoke-cpu-delete spoke-infra spoke-join spoke-commit
 # Run hack/quay-env.sh once first. Every script is safe to rerun.
 # With clusters.local.yaml (clusters.example.yaml): a kubeconfig per cluster in .kube-cache/; rerun
 # when a token expires (a day). NAMES="host site-a" logs in to those only.
@@ -45,7 +45,11 @@ spoke-infra:
 	$(need-spoke)
 	$(MAKE) spoke-gpu SPOKE=$(SPOKE)
 	$(if $(CPU),$(MAKE) spoke-cpu SPOKE=$(SPOKE))
-# On the hub: import, invite, models directory, portal callback; then prints the commit to make.
+# On the hub: import, invite, models directory, portal callback; then offers to commit and push them.
 spoke-join:
 	$(need-spoke)
 	bash bootstrap/46-spoke-join.sh $(SPOKE)
+# Commits and pushes only the spoke's invite and models directory, without asking (for re-runs).
+spoke-commit:
+	$(need-spoke)
+	bash hack/spoke-commit.sh $(SPOKE)

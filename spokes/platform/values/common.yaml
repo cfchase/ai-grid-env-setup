@@ -16,8 +16,8 @@ dependencies:
   # Monitoring below collects metrics only, so its traces and logs back ends stay out.
   tempo: { enabled: false }
   loki: { enabled: false }
-  # NFD and the GPU operator come from their own app under label ai-grid/gpu (spokes/gpu), never from
-  # the platform: `auto` would install them here too once a component needing them is enabled.
+  # NFD and the GPU operator come from their own app, gpu-<spoke> (spokes/gpu), never from the
+  # platform: `auto` would install them here too once a component needing them is enabled.
   nfd: { enabled: false }
   nvidiaGPUOperator: { enabled: false }
 services:

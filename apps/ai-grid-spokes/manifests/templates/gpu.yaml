@@ -1,17 +1,10 @@
-{{- /* NFD and the NVIDIA GPU operator on ManagedClusters labelled ai-grid/gpu=true, independent of
-       ai-grid/enabled (Daniele Zonca: the GPU operator is a spoke prerequisite, not part of AI Grid).
-       Its own release (rhai-gpu), values and CRs: nothing it renders overlaps platform-<spoke>. */ -}}
-apiVersion: cluster.open-cluster-management.io/v1beta1
-kind: Placement
-metadata: { name: ai-grid-gpu, namespace: openshift-gitops }
-spec:
-  clusterSets: [default]
-  predicates:
-    - requiredClusterSelector: { labelSelector: { matchLabels: { ai-grid/gpu: "true" } } }
-  tolerations:
-    - { key: cluster.open-cluster-management.io/unreachable, operator: Exists }
-    - { key: cluster.open-cluster-management.io/unavailable, operator: Exists }
----
+{{- /* NFD and the NVIDIA GPU operator on the spokes that serve models: ai-grid/enabled with role
+       inference or combined (Chris, 2026-10-21); ingress spokes get nothing. On a spoke with no NVIDIA
+       GPU the operator runs no driver, device-plugin or DCGM pods (its DaemonSets want 0) and its
+       ClusterPolicy reads ready with condition NoGPUNodes; NFD runs one worker pod per node. Remove
+       drops the app with the other spoke apps and keeps the operators installed
+       (preserveResourcesOnDeletion). Its own release (rhai-gpu), values and CRs: nothing it renders
+       overlaps platform-<spoke>. */ -}}
 apiVersion: argoproj.io/v1alpha1
 kind: ApplicationSet
 metadata: { name: ai-grid-gpu, namespace: openshift-gitops }
@@ -20,16 +13,7 @@ spec:
   goTemplateOptions: ["missingkey=error"]
   syncPolicy: { preserveResourcesOnDeletion: true }
   generators:
-    # Like ai-grid-spokes.generators, but following the ai-grid-gpu placement.
-    - matrix:
-        generators:
-          - clusterDecisionResource:
-              configMapRef: acm-placement
-              labelSelector: { matchLabels: { cluster.open-cluster-management.io/placement: ai-grid-gpu } }
-              requeueAfterSeconds: 60
-          - clusters:
-              selector:
-                matchLabels: { apps.open-cluster-management.io/acm-cluster: "true", name: '{{`{{.clusterName}}`}}' }
+    {{- include "ai-grid-spokes.generators" (list "inference" "combined") | nindent 4 }}
   template:
     metadata: { name: 'gpu-{{`{{.name}}`}}' }
     spec:

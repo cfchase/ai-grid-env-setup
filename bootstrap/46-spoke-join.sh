@@ -2,8 +2,8 @@
 # Runs on the hub: everything a remote spoke needs before the console's Add (Task 11, steps 1 to 3):
 #   bash bootstrap/46-spoke-join.sh <spoke>      (kubeconfig $KUBEDIR/<spoke>)
 # Imports it into ACM, makes sure its invite and models directory exist in the working tree, and adds
-# its portal callback to maas-cli. The invite lives in git, so the last step is yours: the script
-# prints the commit to make and push. It never commits.
+# its portal callback to maas-cli. The invite lives in git: at a terminal it shows the change and asks
+# before committing and pushing those two paths (hack/spoke-commit.sh); otherwise it prints the command.
 # 36-portal-clients.sh rewrites the whole redirect list from SPOKES, so the list is every remote spoke
 # with an invite in git, this one, and local-cluster while the hub is a grid member.
 spoke=${1:?usage: 46-spoke-join.sh <spoke>}
@@ -43,5 +43,4 @@ for s in $all; do
 done
 SPOKES=$keep bash "$root/bootstrap/36-portal-clients.sh"
 
-log "Commit and push the invite and models directory (Argo CD reads $GIT_REPO $GIT_REF), then add $spoke in the console:"
-printf '  git add apps/grid-enrollment/manifests/values.yaml spokes/clusters/%s && git commit -m "spoke %s: invite and models" && git push\n' "$spoke" "$spoke"
+bash "$root/hack/spoke-commit.sh" "$spoke" --ask
