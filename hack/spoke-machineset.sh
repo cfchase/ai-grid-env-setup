@@ -5,7 +5,7 @@
 #   bash hack/spoke-machineset.sh gpu|cpu apply|delete <spoke> [--dry-run]
 # GPU_INSTANCE_TYPE (g6.xlarge), GPU_REPLICAS (1), GPU_AZ (the cloned MachineSet's zone), GPU_VOLUME_SIZE (120),
 # CPU_INSTANCE_TYPE (m6a.4xlarge), CPU_REPLICAS (1), CPU_AZ, CPU_VOLUME_SIZE (120), DRY_RUN=1.
-# Rerun-safe. Waits for the node, and stops with the Machine's own error when AWS refuses it
+# Rerun-safe, but stops while machines of another type or volume size exist. Waits for the node, and stops with the Machine's own error when AWS refuses it
 # (InsufficientInstanceCapacity, an unsupported type): retry with GPU_AZ=<other zone> or a smaller type.
 # Ported from rh-aiservices-bu/rhoai-nightly f166a47 (scripts/create-gpu-machineset.sh and
 # create-cpu-machineset.sh, with their templates; Chris Chase wrote them). Differences: it clones a
@@ -60,6 +60,10 @@ yaml=$(kc "$spoke" get machineset "$ref" -n $ns -o json | jq --arg name "$name" 
          | if $vol != "" then .providerSpec.value.blockDevices[0].ebs.volumeSize = ($vol | tonumber) else . end)}}}
   | .metadata.labels["machine.openshift.io/cluster-api-cluster"] = $infra')
 if [[ -n $dry ]]; then echo "$yaml"; log "dry run: nothing applied"; exit 0; fi
+# A MachineSet change reaches only new machines, and the wait below would count the old ones as done.
+old=$(kc "$spoke" get machines -n $ns -l machine.openshift.io/cluster-api-machineset="$name" -o json | jq --arg t "$type" --arg vol "$vol" '
+  [.items[] | select(.metadata.deletionTimestamp == null) | .spec.providerSpec.value | select(.instanceType != $t or ($vol != "" and (.blockDevices[0].ebs.volumeSize | tostring) != $vol))] | length')
+((old == 0)) || die "$spoke: $name has machines that aren't $type${vol:+ with a ${vol}GiB volume}, which a MachineSet change doesn't replace: make spoke-$kind-delete SPOKE=$spoke, then rerun"
 kc "$spoke" apply -f - <<<"$yaml" >/dev/null
 
 # Wait for every machine to become a Ready node; a Failed machine ends the wait with its own message.

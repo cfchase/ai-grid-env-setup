@@ -37,6 +37,12 @@ gone() { # <timeout s> <kc args...>: wait until the object is gone; any other er
   kc $s get "$@" -o jsonpath='{.metadata.finalizers}{" "}{.status.conditions[-1:].message}' 2>/dev/null; echo
   die "still present after ${t}s: $* (finalizers and last condition above)"
 }
+names() { # <resource> <namespace>: its objects, none if the kind's CRD never arrived; any other error stops
+  local crd
+  kc $s get "$1" -n "$2" -o name 2>/dev/null && return
+  crd=$(kc $s get crd "$1" --ignore-not-found -o name) && [[ -z $crd ]] ||
+    die "can't list $1 in $2 on $s: rerun when the spoke answers (if the token expired, run make login)"
+}
 
 # 1. Inventory, before unlabelling removes the Applications; kept in out/ so a rerun can finish.
 out="$(cd "$(dirname "$0")/.." && pwd)/out"; mkdir -p "$out"; inv=$out/uninstall-$s.txt
@@ -131,12 +137,15 @@ for o in $objs; do gone 300 "$o" -n models-as-a-service; done
 # tenant's API keys, then deletes its MaaSTenantConfig, whose cleanup needs the AITenant to resolve.
 # Deleting the MaaSTenantConfig first would take maas-api down before the revoke.
 kc $s delete aitenants.maas.opendatahub.io --all -n ai-tenants --ignore-not-found --wait=false 2>/dev/null || true
-for o in $(kc $s get aitenants.maas.opendatahub.io -n ai-tenants -o name 2>/dev/null); do gone 300 "$o" -n ai-tenants; done
+# A failed list stops here, keeping the hold label: going on would take the spoke off the network before the revoke.
+objs=$(names aitenants.maas.opendatahub.io ai-tenants)
+for o in $objs; do gone 300 "$o" -n ai-tenants; done
 # Normally gone with its AITenant. A leftover whose AITenant is already gone can loop in
 # ai-gateway-controller's praxis-cleanup ("owning AITenant is not resolvable yet"): the wait then stops
 # and names that finalizer, which has to be removed by hand.
 kc $s delete maastenantconfigs.maas.opendatahub.io --all -n models-as-a-service --ignore-not-found --wait=false 2>/dev/null || true
-for o in $(kc $s get maastenantconfigs.maas.opendatahub.io -n models-as-a-service -o name 2>/dev/null); do gone 300 "$o" -n models-as-a-service; done
+objs=$(names maastenantconfigs.maas.opendatahub.io models-as-a-service)
+for o in $objs; do gone 300 "$o" -n models-as-a-service; done
 
 # 4. The MaaS cleanup is done: a remote spoke leaves the cross-cluster network.
 if [[ $s != local-cluster ]]; then

@@ -4,8 +4,8 @@
 # Imports it into ACM, makes sure its invite and models directory exist in the working tree, and adds
 # its portal callback to maas-cli. The invite lives in git: at a terminal it shows the change and asks
 # before committing and pushing those two paths (hack/spoke-commit.sh); otherwise it prints the command.
-# 36-portal-clients.sh rewrites the whole redirect list from SPOKES, so the list is every remote spoke
-# with an invite in git, this one, and local-cluster while the hub is a grid member.
+# 36-portal-clients.sh sets the redirect list from SPOKES, so the list is every remote spoke with an
+# invite in git, this one, and local-cluster while the hub is a grid member.
 spoke=${1:?usage: 46-spoke-join.sh <spoke>}
 source "$(dirname "$0")/lib.sh"
 root=$(cd "$(dirname "$0")/.." && pwd)
@@ -35,12 +35,12 @@ fi
 all=$(yq ".grid-enrollment.invites | keys | .[]" "$values" | tr "\n" " ")
 [[ $(kc $HOST get managedcluster local-cluster -o json | jq -r --arg l "$LABEL_ENABLED" '.metadata.labels[$l] // ""') == true ]] && all="local-cluster $all"
 # 36-portal-clients.sh reads each spoke's ingress domain through its kubeconfig and stops at a missing
-# one. Leave those spokes out and say so: the list is rewritten whole, so their callbacks drop until
-# this runs again with their kubeconfig in $KUBEDIR.
-keep=""
+# one. Leave those spokes out and say so, and have it add to maas-cli's list rather than replace it, so
+# their callbacks stay.
+keep="" missing=""
 for s in $all; do
-  if [[ -f $(kcfg "$s") ]]; then keep+="$s "; else log "no kubeconfig for $s at $(kcfg "$s"): its portal callback is left out of maas-cli"; fi
+  if [[ -f $(kcfg "$s") ]]; then keep+="$s "; else missing=1; log "no kubeconfig for $s at $(kcfg "$s"): its portal callback stays as it is"; fi
 done
-SPOKES=$keep bash "$root/bootstrap/36-portal-clients.sh"
+SPOKES=$keep KEEP_OTHER_URIS=$missing bash "$root/bootstrap/36-portal-clients.sh"
 
 bash "$root/hack/spoke-commit.sh" "$spoke" --ask

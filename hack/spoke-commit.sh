@@ -13,12 +13,10 @@ msg="spoke $spoke: invite and models"
 # host/owner/repo, lowercased, with any scheme, user or token removed (so it's also safe to print).
 norm() { sed -E 's#^[a-z+]+://##; s#^[^@/]*@##; s#:#/#; s#/$##; s#\.git$##' <<<"$1" | tr 'A-Z' 'a-z'; }
 check_push() {
-  local branch url extra
-  branch=$(git branch --show-current)
+  local url extra
   [[ $branch == "$GIT_REF" ]] || die "on branch ${branch:-(detached)}, but Argo CD reads $GIT_REF: check out $GIT_REF, or set GIT_REF"
-  [[ $up ]] || die "branch $branch has no upstream: push it once with git push -u <remote> $branch, then rerun"
-  # Where a plain git push would go: the branch's push remote, the default push remote, or its upstream.
-  remote=$(git config "branch.$branch.pushRemote" || git config remote.pushDefault || git config "branch.$branch.remote")
+  [[ $remote ]] || die "branch $branch has no upstream: push it once with git push -u <remote> $branch, then rerun"
+  [[ $up ]] || die "can't fetch $GIT_REF from remote $remote (git's error above): fix that, then rerun"
   url=$(git remote get-url --push "$remote")
   [[ $(norm "$url") == "$(norm "$GIT_REPO")" ]] || die "branch $branch pushes to remote $remote ($(norm "$url")), but Argo CD reads $(norm "$GIT_REPO"): push to that repository's branch, or set GIT_REPO"
   extra=$(git log --format='%h%x09%s' "$up..HEAD" | awk -F'\t' -v m="$msg" '$2 != m {print "  " $1 " " $2}')
@@ -28,8 +26,11 @@ Push or drop them first, then rerun make spoke-commit SPOKE=$spoke"
 }
 pending=1
 git diff --quiet HEAD -- "${paths[@]}" && [[ -z $(git ls-files --others --exclude-standard -- "${paths[@]}") ]] && pending=
-# A commit an earlier run made but couldn't push, compared with the branch's upstream.
-up=$(git rev-parse -q --verify '@{u}' 2>/dev/null) || up=
+# Where a plain git push would go: the branch's push remote, the default push remote, or its upstream.
+branch=$(git branch --show-current) remote=
+[[ -z $branch ]] || remote=$(git config "branch.$branch.pushRemote" || git config remote.pushDefault || git config "branch.$branch.remote") || remote=
+# A commit an earlier run made but couldn't push, compared with $GIT_REF where the push goes.
+up=; [[ $remote ]] && git fetch -q "$remote" "$GIT_REF" && up=$(git rev-parse FETCH_HEAD)
 unpushed=; [[ $up ]] && unpushed=$(git log --format=%s "$up..HEAD")
 grep -qFx "$msg" <<<"$unpushed" || unpushed=
 if [[ -z $pending && -z $unpushed && -n $up ]]; then log "$spoke: invite and models directory already committed and pushed"; exit 0; fi
@@ -40,6 +41,8 @@ if [[ $ask ]]; then
   fi
   check_push
   git --no-pager diff --stat HEAD -- "${paths[@]}"
+  # The invites file is shared: show it whole, since another spoke's pending invite would go in this commit.
+  git --no-pager diff HEAD -- "${paths[0]}"
   git ls-files --others --exclude-standard -- "${paths[@]}" | sed 's/^/ new: /'
   [[ -z $unpushed ]] || echo " committed earlier, not pushed: $msg"
   read -r -p "Commit and push to $GIT_REF? [y/N] " a
