@@ -136,7 +136,9 @@ broker_claims() { local idp=$1 u=$2 email=${3:-} j loc code ver chal action hint
   [[ -n $code ]] && curl -fsS --connect-timeout 5 --max-time 20 -d grant_type=authorization_code -d client_id=maas-cli --data-urlencode "code=$code" --data-urlencode "redirect_uri=$cb" \
     -d code_verifier=$ver "https://$kchost/realms/ai-grid/protocol/openid-connect/token" | jq -r .access_token | cut -d. -f2 | tr '_-' '/+' \
     | { read -r t; while (( ${#t} % 4 )); do t="$t="; done; printf '%s' "$t"; } | base64 -d 2>/dev/null; }
-for s in $SPOKES; do [[ $(role_of $s) == inference ]] || { cb="https://maas.$(kc $s get ingresses.config cluster -o jsonpath='{.spec.domain}')/oauth2/callback"; break; }; done
+# The first portal spoke whose apps domain the hub knows (no spoke kubeconfig needed); none, no sign-in check.
+ps=$(portal_spokes)
+for s in $ps; do d=$(apps_domain "$s"); [[ -n $d ]] && { cb="https://maas.$d/oauth2/callback"; break; }; done
 export -f broker_claims; export cb
 brokered="(.preferred_username | startswith(\"org1-idp.\")) and .groups == [\$o + \":group1\"] and .\"https://redhat.com/maas/orgs\"[0].organization_id == \$o"
 [[ -n ${cb:-} ]] && uat "brokered sign-in: org1-idp alice" "the org1-idp login form, the broker's mappers, or maas-cli's callback for the first ingress spoke" \
@@ -151,7 +153,6 @@ uat "no maas-portal client"   "the confidential client from an earlier portal de
 # maas-cli is a public client, so it must take exactly the portal callbacks of portal_spokes (lib.sh),
 # as 36-portal-clients.sh writes them: a departed spoke's leftover one could receive a tenant's sign-in
 # code once its domain is reused. Reading the client needs Keycloak's admin login, as that script does.
-ps=$(portal_spokes)
 want=$(for s in $ps; do echo "https://maas.$(apps_domain "$s")/oauth2/callback"; done | jq -Rsc 'split("\n") | map(select(. != "")) | sort')
 redirect_uris() { local au ap tok
   au=$(kc $h get secret maas-keycloak-initial-admin -n $KEYCLOAK_NS -o jsonpath='{.data.username}' | base64 -d)
