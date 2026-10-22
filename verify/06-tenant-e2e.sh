@@ -39,8 +39,11 @@ uat "completion 200"  "got $code: 401/403 = key or subscription; 404/503 = MaaS 
   test "$code" = 200
 uat "completion text" "200 without content: the grid answered but vLLM returned nothing" jq -e '.choices[0].message.content | length > 0' out/e2e-completion.json
 # Which site served it: the provider gateway sets X-Grid-Provider-Site. Opt-in (E2E_EXPECT_SITE=<site>),
-# because whether MaaS passes the header back is unverified; for an inference split, name the
-# inference site and stop the model on the entry spoke first.
+# because whether MaaS passes the header back is unverified. For an inference split, name the
+# inference site. Stopping only the entry spoke's model doesn't move traffic (the consumer
+# health-checks provider gateways over TCP, so that site keeps being chosen and answers 502): the proof
+# needs a model only the inference site serves, or the entry spoke's provider stopped (unverified that
+# intelligent_route then skips it). Pending which of the two (runbook, inference site, step 5).
 if [[ -n ${E2E_EXPECT_SITE:-} ]]; then
   uat "served by $E2E_EXPECT_SITE" "another site served it (or MaaS dropped X-Grid-Provider-Site): grep -i x-grid out/e2e-completion.headers; on a refusal, siteDigests or consumerSites" \
     bash -c "tr -d '\r' <out/e2e-completion.headers | grep -iqx 'x-grid-provider-site: $E2E_EXPECT_SITE'"

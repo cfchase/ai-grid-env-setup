@@ -81,6 +81,7 @@ del_app() { # <app> [kind...]: delete what that app deployed, optionally only th
 if [[ $s != local-cluster ]]; then
   kc $HOST label managedcluster $s "$LABEL_UNINSTALLING=true" --overwrite >/dev/null
   trap 'rc=$?; ((rc == 0)) || log "$s keeps $LABEL_UNINSTALLING=true, and with it its route to the hub: rerun make spoke-uninstall SPOKE=$s to finish, or remove it on the hub with oc label managedcluster $s $LABEL_UNINSTALLING-"' EXIT
+  trap 'exit 130' INT TERM   # so Ctrl-C also reports the label
 fi
 kc $HOST label managedcluster $s "$LABEL_ENABLED-" "$LABEL_ROLE-" >/dev/null
 for _ in $(seq 1 24); do
@@ -101,7 +102,7 @@ for k in inferenceproviders gridsites gridnetworks; do
 done
 del_app grid-operator
 
-log "shared rate-limit Redis and the database replica (Kuadrant's Limitador stays for its operator)"
+log "shared rate-limit Redis (Kuadrant's Limitador stays for its operator)"
 # Redis first, while its operator still runs to clear its finalizer.
 del_app limitador-redis RedisReplication
 kc $s get redisreplications.redis.redis.opstreelabs.in limitador-redis -n limitador-redis >/dev/null 2>&1 && gone 300 redisreplications.redis.redis.opstreelabs.in limitador-redis -n limitador-redis
@@ -131,7 +132,9 @@ for o in $objs; do gone 300 "$o" -n models-as-a-service; done
 # Deleting the MaaSTenantConfig first would take maas-api down before the revoke.
 kc $s delete aitenants.maas.opendatahub.io --all -n ai-tenants --ignore-not-found --wait=false 2>/dev/null || true
 for o in $(kc $s get aitenants.maas.opendatahub.io -n ai-tenants -o name 2>/dev/null); do gone 300 "$o" -n ai-tenants; done
-# Normally gone with its AITenant; one without an AITenant is deleted here.
+# Normally gone with its AITenant. A leftover whose AITenant is already gone can loop in
+# ai-gateway-controller's praxis-cleanup ("owning AITenant is not resolvable yet"): the wait then stops
+# and names that finalizer, which has to be removed by hand.
 kc $s delete maastenantconfigs.maas.opendatahub.io --all -n models-as-a-service --ignore-not-found --wait=false 2>/dev/null || true
 for o in $(kc $s get maastenantconfigs.maas.opendatahub.io -n models-as-a-service -o name 2>/dev/null); do gone 300 "$o" -n models-as-a-service; done
 
@@ -139,6 +142,7 @@ for o in $(kc $s get maastenantconfigs.maas.opendatahub.io -n models-as-a-servic
 if [[ $s != local-cluster ]]; then
   log "leaving the cross-cluster network (Submariner's add-on removes its agent from $s)"
   kc $HOST label managedcluster $s "$LABEL_UNINSTALLING-" >/dev/null
+  trap - EXIT
   # Wait for the network Placement to drop the spoke first: while its decision still lists $s, the
   # ApplicationSet recreates submariner-$s, which re-applies the add-on. Once it's dropped, deleting
   # the app prunes the add-on (its resources finalizer, as on Remove in the console); the deletes
@@ -156,7 +160,6 @@ if [[ $s != local-cluster ]]; then
   kc $HOST delete applications.argoproj.io submariner-$s -n openshift-gitops --ignore-not-found --wait=false >/dev/null
   kc $HOST delete managedclusteraddon submariner -n $s --ignore-not-found
   kc $HOST delete submarinerconfigs.submarineraddon.open-cluster-management.io submariner -n $s --ignore-not-found
-  trap - EXIT
   # The maas-db replica, now that the spoke is off the network: namespace maas-db also names the hub's
   # imported maas-db-rw, and Policy clusterset-namespaces would recreate it while the spoke was on it.
   # Never on local-cluster: there namespace maas-db holds the hub's primary database.

@@ -10,14 +10,17 @@ cd "$(dirname "$0")/.."
 paths=(apps/grid-enrollment/manifests/values.yaml "spokes/clusters/$spoke")
 msg="spoke $spoke: invite and models"
 # The push must go where Argo CD reads, and publish nothing but this spoke's commit.
-norm() { sed -E 's#^(https://|ssh://)?(git@)?##; s#:#/#; s#/$##; s#\.git$##' <<<"$1"; }
+# host/owner/repo, lowercased, with any scheme, user or token removed (so it's also safe to print).
+norm() { sed -E 's#^[a-z+]+://##; s#^[^@/]*@##; s#:#/#; s#/$##; s#\.git$##' <<<"$1" | tr 'A-Z' 'a-z'; }
 check_push() {
-  local branch remote url extra
+  local branch url extra
   branch=$(git branch --show-current)
   [[ $branch == "$GIT_REF" ]] || die "on branch ${branch:-(detached)}, but Argo CD reads $GIT_REF: check out $GIT_REF, or set GIT_REF"
   [[ $up ]] || die "branch $branch has no upstream: push it once with git push -u <remote> $branch, then rerun"
-  remote=$(git config "branch.$branch.remote"); url=$(git remote get-url "$remote")
-  [[ $(norm "$url") == "$(norm "$GIT_REPO")" ]] || die "branch $branch pushes to $remote ($url), but Argo CD reads $GIT_REPO: set its upstream there, or set GIT_REPO"
+  # Where a plain git push would go: the branch's push remote, the default push remote, or its upstream.
+  remote=$(git config "branch.$branch.pushRemote" || git config remote.pushDefault || git config "branch.$branch.remote")
+  url=$(git remote get-url --push "$remote")
+  [[ $(norm "$url") == "$(norm "$GIT_REPO")" ]] || die "branch $branch pushes to remote $remote ($(norm "$url")), but Argo CD reads $(norm "$GIT_REPO"): push to that repository's branch, or set GIT_REPO"
   extra=$(git log --format='%h%x09%s' "$up..HEAD" | awk -F'\t' -v m="$msg" '$2 != m {print "  " $1 " " $2}')
   [[ -z $extra ]] || die "$branch has other unpushed commits, which a push would publish to Argo CD too:
 $extra
@@ -29,7 +32,7 @@ git diff --quiet HEAD -- "${paths[@]}" && [[ -z $(git ls-files --others --exclud
 up=$(git rev-parse -q --verify '@{u}' 2>/dev/null) || up=
 unpushed=; [[ $up ]] && unpushed=$(git log --format=%s "$up..HEAD")
 grep -qFx "$msg" <<<"$unpushed" || unpushed=
-if [[ -z $pending && -z $unpushed ]]; then log "$spoke: invite and models directory already committed and pushed"; exit 0; fi
+if [[ -z $pending && -z $unpushed && -n $up ]]; then log "$spoke: invite and models directory already committed and pushed"; exit 0; fi
 if [[ $ask ]]; then
   if [[ ! -t 0 ]]; then
     log "Commit and push the invite and models directory (Argo CD reads $GIT_REF), then add $spoke in the console:"
@@ -47,5 +50,5 @@ if [[ $pending ]]; then
   git add -- "${paths[@]}"
   git commit -q -m "$msg" -- "${paths[@]}"
 fi
-git push -q || die "committed locally, but the push failed (above): fix it, then rerun make spoke-commit SPOKE=$spoke"
+git push -q "$remote" "HEAD:refs/heads/$GIT_REF" || die "committed locally, but the push failed (above): fix it, then rerun make spoke-commit SPOKE=$spoke"
 log "pushed $(git rev-parse --short HEAD) to $GIT_REF: add $spoke in the console"
