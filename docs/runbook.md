@@ -51,11 +51,20 @@ and `bootstrap/35-keycloak.sh` stops with these steps. Deleting the realm drops 
 it: its users, the console backend's user, and `maas-cli`'s portal callbacks, so the last step writes
 them again. Done on `demo1` on 2026-10-21.
 
-1. Delete realm `ai-grid` through the admin API (`DELETE /admin/realms/ai-grid`, with a token from realm
+> **Warning:** The import brings back only `org1` and `org2` from git. Organizations created in the
+> console (through the backend's Tenants API) are lost with the realm, with their members and
+> attributes, and the import doesn't restore them.
+
+1. Save the organizations first, with a token from realm `master`:
+   `GET /admin/realms/ai-grid/organizations?briefRepresentation=false&first=0&max=1000`, to a file. After
+   step 4, create any you still need again (in the console, or `POST /admin/realms/ai-grid/organizations`
+   with each saved entry without its `id`), and check their IDs: a subscription names its organization
+   by ID.
+2. Delete realm `ai-grid` through the admin API (`DELETE /admin/realms/ai-grid`, with a token from realm
    `master`), or from the admin console's realm settings.
-2. `oc delete keycloakrealmimport ai-grid -n keycloak`. Argo CD recreates it and the operator imports the
+3. `oc delete keycloakrealmimport ai-grid -n keycloak`. Argo CD recreates it and the operator imports the
    realm from git, alongside `org1-idp` and `org2-idp`.
-3. `bash bootstrap/35-keycloak.sh && bash bootstrap/36-portal-clients.sh && bash bootstrap/60-console.sh`
+4. `bash bootstrap/35-keycloak.sh && bash bootstrap/36-portal-clients.sh && bash bootstrap/60-console.sh`
    (with the usual `SPOKES` for 36), then `make verify`.
 
 ### A remote spoke, and a hub without OpenShift AI
