@@ -45,6 +45,7 @@ spec:
             {{`{{- else }}`}}
             swim: { siteName: {{`{{.name}}`}}, service: { type: {{ .Values.remoteSwimServiceType }} } }
             platform: aws
+            loadBalancerScope: {{ .Values.swimLoadBalancerScope }}
             enrollment: { enabled: true, url: "https://{{ .Values.enrollHost }}" }
             {{`{{- end }}`}}
       destination: { server: '{{`{{.server}}`}}', namespace: {{ .Values.gridNs }} }

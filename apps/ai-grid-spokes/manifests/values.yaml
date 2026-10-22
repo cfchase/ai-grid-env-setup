@@ -4,10 +4,10 @@
 catalogRepo: https://github.com/ai-grid-cloud/demo-cluster.git
 catalogRef: main
 odhGitopsRef: "e6fe1032cbb35ba4de7e3c053dde425cbe63fffe"         # odh-gitops main, 2026-10-21 (PR 181; DSC aiGrid left unset, see spokes/platform/values/common.yaml)
-gridVersion: 0.2.0             # switch to 0.2.1 once it's tagged and its charts are published
+gridVersion: 0.2.2             # the grid release; grid-enrollment's chart version is in apps/grid-enrollment
 # The grid gateway image by digest (the v<gridVersion> tag's multi-arch index); bump with gridVersion:
 # skopeo inspect --raw docker://ghcr.io/praxis-proxy/grid-gateway:v<gridVersion> | shasum -a 256
-gridGatewayDigest: sha256:3b6679e885fb9a4ef9fa8b8fb7214de36648e649cbb80722a296b87ea1ce9f42
+gridGatewayDigest: sha256:9cc6573fe782a8c43883d57052cb87f3a343c803cb379a97a742036941ca725c
 gridNs: grid
 gridId: aigrid-demo
 gridNetwork: grid
@@ -45,3 +45,9 @@ enrollHost: local-cluster.grid-enrollment.grid-enrollment.svc.clusterset.local:8
 # an inference site and the ingress site it serves, gossip with each other. With a single remote site
 # ClusterIP also works and skips the NLB, which holds the operator until AWS gives it an address.
 remoteSwimServiceType: LoadBalancer
+# Reach of a remote site's gossip and signals load balancers (the grid chart's loadBalancerScope; it
+# applies only to a LoadBalancer Service). external is an internet-facing NLB, which grid v0.2.0 always
+# made; v0.2.1 and later default to internal, an NLB reachable only inside its own VPC, and each spoke is
+# a separate cluster in its own VPC. AWS reads the scope only when it creates the load balancer: changing
+# it means deleting the Service. (From env PR 12.)
+swimLoadBalancerScope: external

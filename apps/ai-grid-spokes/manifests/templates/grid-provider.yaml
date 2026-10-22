@@ -20,23 +20,27 @@ spec:
           helm:
             releaseName: grid-provider
             values: |
-              image: { repository: ghcr.io/praxis-proxy/grid-gateway, tag: "v{{ .Values.gridVersion }}@{{ required "gridGatewayDigest" .Values.gridGatewayDigest }}" }
-              gatewayConfig:
-                role: provider
-                localSite: {{`{{.name}}`}}
-                # The callers present this site's identity: the hub site's leaf certificate on
-                # local-cluster (D8), a remote site's own (siteDigests) elsewhere. A site with no
-                # digest yet pins 64 zeros, which no certificate matches: closed until committed,
-                # whatever the gateway would make of an empty pin.
-                peerTrust: { mode: pin, certDigests: ["{{`{{ if eq .name "local-cluster" }}`}}{{ required "hubSiteDigest" .Values.hubSiteDigest }}{{`{{ else }}{{ index (dict`}}{{ range $k, $v := .Values.siteDigests }} "{{ $k }}" "{{ $v }}"{{ end }}{{`) .name | default "`}}{{ repeat 64 "0" }}{{`" }}{{ end }}`}}"{{ include "ai-grid-spokes.callerDigests" . }}] }
-                backends:
-                  local:
-                    endpoint: "{{ .Values.modelBackendIP }}:8000"
-                    transport:
-                      mode: tls
-                      sni: {{ .Values.modelName }}-kserve-workload-svc.aigrid-models.svc
-                      ca: { configMap: openshift-service-ca.crt, key: service-ca.crt }
-              tls: { enabled: true, existingSecret: grid-site-identity, caSecret: grid-ca }
+              # 0.2.2 names objects <release>-praxis-gateway; keep 0.2.0's names (Service grid-provider).
+              fullnameOverride: grid-provider
+              image: { repository: ghcr.io/praxis-proxy/grid-gateway, tag: "v{{ .Values.gridVersion }}", digest: {{ required "gridGatewayDigest" .Values.gridGatewayDigest | quote }}, flavor: grid-gateway }
+              grid: { siteName: {{`{{.name}}`}} }
+              praxisConfig:
+                source: render
+                render:
+                  role: provider
+                  # The callers present this site's identity: the hub site's leaf certificate on
+                  # local-cluster (D8), a remote site's own (siteDigests) elsewhere. A site with no
+                  # digest yet pins 64 zeros, which no certificate matches: closed until committed,
+                  # whatever the gateway would make of an empty pin.
+                  peerTrust: { mode: pin, certDigests: ["{{`{{ if eq .name "local-cluster" }}`}}{{ required "hubSiteDigest" .Values.hubSiteDigest }}{{`{{ else }}{{ index (dict`}}{{ range $k, $v := .Values.siteDigests }} "{{ $k }}" "{{ $v }}"{{ end }}{{`) .name | default "`}}{{ repeat 64 "0" }}{{`" }}{{ end }}`}}"{{ include "ai-grid-spokes.callerDigests" . }}] }
+                  backends:
+                    local:
+                      endpoint: "{{ .Values.modelBackendIP }}:8000"
+                      transport:
+                        mode: tls
+                        sni: {{ .Values.modelName }}-kserve-workload-svc.aigrid-models.svc
+                        ca: { configMapName: openshift-service-ca.crt, key: service-ca.crt }
+              gridIdentity: { tlsSecretName: grid-site-identity, caSecretName: grid-ca }
               port: { containerPort: 8443, name: https }
               service: { type: ClusterIP, port: 8443 }
         - repoURL: {{ required "gitRepo" .Values.gitRepo | quote }}

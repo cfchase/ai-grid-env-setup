@@ -19,7 +19,7 @@ spec:
     # token, and Argo CD runs PostSync hooks only once every resource is healthy, so the built-in
     # check deadlocks every new invite. Their compliance is ACM's to show (verify/05). Matched by the
     # grid chart's standards annotation, not a grid-invite- name prefix: Argo CD's Lua has no string
-    # library, and the chart (v0.2.0) sets no label. Any other Policy there reads Degraded as usual.
+    # library, and the chart (v0.2.2) sets no label. Any other Policy there reads Degraded as usual.
     - group: policy.open-cluster-management.io
       kind: Policy
       check: |
