@@ -115,7 +115,7 @@ site's exported provider Service (`spokes/grid/provider-export`) at its Globalne
 | Step | Command | What happens |
 |---|---|---|
 | 1 | import, invite and `spokes/clusters/<site>/models` as steps 1–3 above | as for `site-a` |
-| 2 | if it's the second remote site: `remoteSwimServiceType: LoadBalancer` in `apps/ai-grid-spokes/manifests/values.yaml`, commit | remote sites gossip with each other through an NLB |
+| 2 | nothing: `remoteSwimServiceType` in `apps/ai-grid-spokes/manifests/values.yaml` is `LoadBalancer` (set `ClusterIP` only for a single remote site, to skip the NLB) | remote sites gossip with each other through an NLB |
 | 3 | **Add to AI Grid** in the console, role `inference` | OpenShift AI, the grid operator and provider, the model, and ApplicationSet `grid-provider-export`, which exports `grid-provider-fixed`; Globalnet gives it a GlobalIngressIP |
 | 4 | `bash bootstrap/50-grid-hub-info.sh`, then commit the printed `siteDigests.<site>` and `providerGlobalIPs.<site>`, and list every ingress and combined spoke in `consumerSites` | every other site's consumer lists the site as a backend at that address; the site's provider pins exactly the `consumerSites` digests; its grid operator advertises that address |
 | 5 | `make verify`; to prove the route, stop the model on the entry spoke and run `E2E_EXPECT_SITE=<site> bash verify/06-tenant-e2e.sh` | `verify/05` checks the export's address against git, each consumer's backend, and both lists against the spokes' roles |
