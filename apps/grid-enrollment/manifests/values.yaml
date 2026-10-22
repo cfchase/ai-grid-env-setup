@@ -12,6 +12,7 @@ grid-enrollment:
   # the invite Policy delivers it to the site with the CA bundle and gossip key.
   invites:
     site-a: { network: grid }
+    site-b: { network: grid }
   invitePolicy: { enabled: true, namespace: grid, clusterSet: default }
   db:
     builtin:
