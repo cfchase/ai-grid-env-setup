@@ -1,0 +1,6 @@
+dependencies:
+- name: grid-enrollment
+  repository: oci://ghcr.io/praxis-proxy/charts
+  version: 0.2.0
+digest: sha256:f37cc86e2aaa7a6de723537bdb9c2985dd883aae845226ed6e2f875623e213e6
+generated: "2026-10-21T22:34:47.98547-04:00"
