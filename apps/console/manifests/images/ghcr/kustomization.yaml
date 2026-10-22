@@ -5,7 +5,7 @@
 # merge commit and its digest (skopeo inspect docker://<image>:<tag> | jq -r .Digest), change both here, and move the base ref in ../../kustomization.yaml
 # and the refs in ../../builds.yaml to the same commits.
 # UAT 2026-10-22 (integration/demo1 only): PR images, pinned by digest, not main sha- tags. Console PR 42
-# (head af40254, built as merge 9186d3a) and backend PR 16 (head 7e5c0e1, built as merge d6bc90b). Replace both
+# (head af40254, built as merge 9186d3a) and backend PR 16 (head 8c1a1bc, built as merge 78db415). Replace both
 # with main's sha-<commit>@<digest> after they merge. The base ref stays f2b1ab1: main changed only a comment there.
 apiVersion: kustomize.config.k8s.io/v1alpha1
 kind: Component
@@ -15,4 +15,4 @@ patches:
       - { op: test, path: /spec/template/spec/containers/1/name, value: bff }
       - { op: replace, path: /spec/template/spec/containers/1/image, value: "ghcr.io/ai-grid-cloud/ai-grid-provider-console:pr-42@sha256:7e16efec7369264c88a132e703ca6a0bcd9887a7f5d60eec250371353e524a93" }
       - { op: test, path: /spec/template/spec/containers/2/name, value: ai-grid-backend }
-      - { op: replace, path: /spec/template/spec/containers/2/image, value: "ghcr.io/ai-grid-cloud/ai-grid-provider-backend:pr-16@sha256:7aa463a7e18a8c205bff69933bcd0fd618bb50413b9aab275a55d7f777792664" }
+      - { op: replace, path: /spec/template/spec/containers/2/image, value: "ghcr.io/ai-grid-cloud/ai-grid-provider-backend:pr-16@sha256:4fecd90a6a21c1d3d2c42d0b9750f152007968c6d1eacb63e254d9aef20b50e9" }
