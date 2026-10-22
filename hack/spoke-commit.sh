@@ -8,22 +8,44 @@ source "$(dirname "$0")/../bootstrap/lib.sh"
 spoke=${1:?usage: spoke-commit.sh <spoke> [--ask]} ask=${2:-}
 cd "$(dirname "$0")/.."
 paths=(apps/grid-enrollment/manifests/values.yaml "spokes/clusters/$spoke")
-if git diff --quiet HEAD -- "${paths[@]}" && [[ -z $(git ls-files --others --exclude-standard -- "${paths[@]}") ]]; then
-  log "$spoke: invite and models directory already committed"; exit 0
-fi
+msg="spoke $spoke: invite and models"
+# The push must go where Argo CD reads, and publish nothing but this spoke's commit.
+norm() { sed -E 's#^(https://|ssh://)?(git@)?##; s#:#/#; s#/$##; s#\.git$##' <<<"$1"; }
+check_push() {
+  local branch remote url extra
+  branch=$(git branch --show-current)
+  [[ $branch == "$GIT_REF" ]] || die "on branch ${branch:-(detached)}, but Argo CD reads $GIT_REF: check out $GIT_REF, or set GIT_REF"
+  [[ $up ]] || die "branch $branch has no upstream: push it once with git push -u <remote> $branch, then rerun"
+  remote=$(git config "branch.$branch.remote"); url=$(git remote get-url "$remote")
+  [[ $(norm "$url") == "$(norm "$GIT_REPO")" ]] || die "branch $branch pushes to $remote ($url), but Argo CD reads $GIT_REPO: set its upstream there, or set GIT_REPO"
+  extra=$(git log --format='%h%x09%s' "$up..HEAD" | awk -F'\t' -v m="$msg" '$2 != m {print "  " $1 " " $2}')
+  [[ -z $extra ]] || die "$branch has other unpushed commits, which a push would publish to Argo CD too:
+$extra
+Push or drop them first, then rerun make spoke-commit SPOKE=$spoke"
+}
+pending=1
+git diff --quiet HEAD -- "${paths[@]}" && [[ -z $(git ls-files --others --exclude-standard -- "${paths[@]}") ]] && pending=
+# A commit an earlier run made but couldn't push, compared with the branch's upstream.
+up=$(git rev-parse -q --verify '@{u}' 2>/dev/null) || up=
+unpushed=; [[ $up ]] && unpushed=$(git log --format=%s "$up..HEAD")
+grep -qFx "$msg" <<<"$unpushed" || unpushed=
+if [[ -z $pending && -z $unpushed ]]; then log "$spoke: invite and models directory already committed and pushed"; exit 0; fi
 if [[ $ask ]]; then
   if [[ ! -t 0 ]]; then
     log "Commit and push the invite and models directory (Argo CD reads $GIT_REF), then add $spoke in the console:"
     echo "  make spoke-commit SPOKE=$spoke"; exit 0
   fi
+  check_push
   git --no-pager diff --stat HEAD -- "${paths[@]}"
   git ls-files --others --exclude-standard -- "${paths[@]}" | sed 's/^/ new: /'
+  [[ -z $unpushed ]] || echo " committed earlier, not pushed: $msg"
   read -r -p "Commit and push to $GIT_REF? [y/N] " a
   [[ $a == [yY]* ]] || { log "not committed; later: make spoke-commit SPOKE=$spoke"; exit 0; }
 fi
-branch=$(git branch --show-current)
-[[ $branch == "$GIT_REF" ]] || die "on branch ${branch:-(detached)}, but Argo CD reads $GIT_REF: check out $GIT_REF, or set GIT_REF"
-git add -- "${paths[@]}"
-git commit -q -m "spoke $spoke: invite and models" -- "${paths[@]}"
-git push -q
+[[ $ask ]] || check_push
+if [[ $pending ]]; then
+  git add -- "${paths[@]}"
+  git commit -q -m "$msg" -- "${paths[@]}"
+fi
+git push -q || die "committed locally, but the push failed (above): fix it, then rerun make spoke-commit SPOKE=$spoke"
 log "pushed $(git rev-parse --short HEAD) to $GIT_REF: add $spoke in the console"

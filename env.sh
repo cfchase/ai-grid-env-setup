@@ -16,6 +16,11 @@ if [[ -f $CLUSTERS_FILE ]]; then
   fi
   export KUBEDIR="${KUBEDIR:-$CLUSTERS_CACHE}"
   GIT_REPO="${GIT_REPO:-$(yq -r '.git.repo // ""' "$CLUSTERS_FILE")}" GIT_REF="${GIT_REF:-$(yq -r '.git.ref // ""' "$CLUSTERS_FILE")}"
+  # An unfilled example value would point Argo CD at a repository that doesn't exist.
+  if [[ $GIT_REPO$GIT_REF == *"<"*">"* ]]; then
+    printf 'ERROR: git.repo or git.ref in %s still has a <placeholder>: fill them in, or delete the git entry for ai-grid-cloud main\n' "$CLUSTERS_FILE" >&2
+    return 1
+  fi
 fi
 export KUBEDIR="${KUBEDIR:-$HOME/.kube/aigrid}"
 # The hub. Scripts use its kubeconfig file's current context. First build:
@@ -40,6 +45,7 @@ export KEYCLOAK_NS=keycloak
 export GRID_NS=grid                                 # the grid's namespace on every spoke (gridNs in git)
 export MODEL_NAME=facebook-opt-125m                 # the fixture model's MaaS ID (spokes/models/opt-125m)
 export LABEL_ENABLED=ai-grid/enabled LABEL_ROLE=ai-grid/role LABEL_LOCATION=location
+export LABEL_UNINSTALLING=ai-grid/uninstalling   # keeps a spoke on the network during 98-uninstall-spoke.sh
 # The git source Argo CD builds the hub and spokes from. To try a branch, set both before make hub, e.g.
 # GIT_REPO=https://github.com/<you>/ai-grid-env-setup.git GIT_REF=<branch>, or set git: in clusters.local.yaml.
 export GIT_REPO="${GIT_REPO:-https://github.com/ai-grid-cloud/ai-grid-env-setup.git}" GIT_REF="${GIT_REF:-main}"
