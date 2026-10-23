@@ -231,6 +231,30 @@ before then (how long an extension lasts is set there; unverified).
 
 **Demo script**: waits for the provider console (Task 9, on hold).
 
+### The backend's git writer (prepared, not switched on)
+
+The console pod's backend container has the writer's settings (`apps/console/manifests/kustomization.yaml`):
+`AI_GRID_WRITE_MODE=cluster`, the repository `https://github.com/ai-grid-cloud/demo-cluster.git`, branch
+`main`, and a token file from Secret `ai-grid-backend-git` (key `token`), mounted read-only at
+`/var/run/secrets/ai-grid-git/token`. The Secret is optional: without it the pod starts, and mode
+`cluster` ignores the git settings.
+
+The token is a fine-grained GitHub PAT with `contents: write` on `demo-cluster` only. Create the Secret
+yourself; no script or agent handles the token. The token travels through stdin, never the command line
+or shell history:
+
+```bash
+read -rs TOKEN && printf '%s' "$TOKEN" | oc create secret generic ai-grid-backend-git -n ai-grid --from-file=token=/dev/stdin; unset TOKEN
+```
+
+Rotate it with the same command after `oc delete secret ai-grid-backend-git -n ai-grid`, then
+`oc rollout restart deployment/ai-grid-provider-console -n ai-grid` (the backend reads the file once, at
+start).
+
+Switching to `AI_GRID_WRITE_MODE=git` needs a backend image with the writer (main plus backend PRs 16 and
+27 plus `feat/gitops-writer`) and Chris's go. In mode `git`, a missing or unreadable token file stops the
+backend at start, so create the Secret first.
+
 ## UAT log
 
 | Date | Checkpoint | `make verify` | Pair UAT result | Notes |

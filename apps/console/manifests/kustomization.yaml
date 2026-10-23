@@ -28,6 +28,26 @@ patches:
       - op: add
         path: /spec/template/spec/containers/2/args/-
         value: --http-listen-address=127.0.0.1:8081
+  # The backend's git writer (backend feat/gitops-writer): in git mode, subscription writes become commits
+  # to the cluster repository instead of objects on the hub. Mode cluster ignores the AI_GRID_GIT_*
+  # settings, so this is inert until the writer image is deployed and the mode switched (Chris's go).
+  # The token is a fine-grained PAT (contents: write on demo-cluster only) that Chris puts in Secret
+  # ai-grid-backend-git himself (docs/runbook.md); optional, so a missing Secret never blocks the pod.
+  # In git mode a missing token file stops the backend at start. The console chart (env PR 9) has no
+  # extra env or volume values yet: when PR 9 lands, this needs backend.gitWriter values in the chart.
+  - target: { kind: Deployment, name: ai-grid-provider-console }
+    patch: |
+      - { op: test, path: /spec/template/spec/containers/2/name, value: ai-grid-backend }
+      - { op: add, path: /spec/template/spec/containers/2/env/-, value: { name: AI_GRID_WRITE_MODE, value: cluster } }
+      - { op: add, path: /spec/template/spec/containers/2/env/-, value: { name: AI_GRID_GIT_URL, value: "https://github.com/ai-grid-cloud/demo-cluster.git" } }
+      - { op: add, path: /spec/template/spec/containers/2/env/-, value: { name: AI_GRID_GIT_BRANCH, value: main } }
+      - { op: add, path: /spec/template/spec/containers/2/env/-, value: { name: AI_GRID_GIT_TOKEN_FILE, value: /var/run/secrets/ai-grid-git/token } }
+      - op: add
+        path: /spec/template/spec/containers/2/volumeMounts
+        value: [{ name: ai-grid-git, mountPath: /var/run/secrets/ai-grid-git, readOnly: true }]
+      - op: add
+        path: /spec/template/spec/volumes/-
+        value: { name: ai-grid-git, secret: { secretName: ai-grid-backend-git, optional: true, defaultMode: 0440, items: [{ key: token, path: token }] } }
   # Add to AI Grid and Remove patch ManagedCluster labels; the backend never creates or deletes
   # clusters, and admission.yaml limits which labels and annotations it may touch. Its read of the
   # ai-grid-ready Policy is a Role in apps/ai-grid-policies.
