@@ -30,7 +30,7 @@ patches:
         value: --http-listen-address=127.0.0.1:8081
   # The backend's git writer (backend feat/gitops-writer): in git mode, subscription writes become commits
   # to the cluster repository instead of objects on the hub. Mode cluster ignores the AI_GRID_GIT_*
-  # settings, so this is inert until the writer image is deployed and the mode switched (Chris's go).
+  # settings; demo1 runs mode git (Chris, 2026-10-23): subscriptions commit to demo-cluster catalog/subscriptions.
   # The token is a fine-grained PAT (contents: write on demo-cluster only) that Chris puts in Secret
   # ai-grid-backend-git himself (docs/runbook.md); optional, so a missing Secret never blocks the pod.
   # In git mode a missing token file stops the backend at start. The console chart (env PR 9) has no
@@ -38,7 +38,7 @@ patches:
   - target: { kind: Deployment, name: ai-grid-provider-console }
     patch: |
       - { op: test, path: /spec/template/spec/containers/2/name, value: ai-grid-backend }
-      - { op: add, path: /spec/template/spec/containers/2/env/-, value: { name: AI_GRID_WRITE_MODE, value: cluster } }
+      - { op: add, path: /spec/template/spec/containers/2/env/-, value: { name: AI_GRID_WRITE_MODE, value: git } }
       - { op: add, path: /spec/template/spec/containers/2/env/-, value: { name: AI_GRID_GIT_URL, value: "https://github.com/ai-grid-cloud/demo-cluster.git" } }
       - { op: add, path: /spec/template/spec/containers/2/env/-, value: { name: AI_GRID_GIT_BRANCH, value: main } }
       - { op: add, path: /spec/template/spec/containers/2/env/-, value: { name: AI_GRID_GIT_TOKEN_FILE, value: /var/run/secrets/ai-grid-git/token } }
