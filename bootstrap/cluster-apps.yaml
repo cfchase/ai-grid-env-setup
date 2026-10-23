@@ -1,0 +1,60 @@
+# Optional: the cluster repository's own apps. One Argo CD Application per
+# clusters/<CLUSTER>/apps/*/application.yaml in CLUSTER_REPO, in the same layout as apps/ here, named
+# cluster-<name> so it never meets a template app. bootstrap/00-gitops.sh applies this file only when
+# CLUSTER_REPO is set, and fills in CLUSTER_REPO, CLUSTER_REF and CLUSTER.
+#
+# Every app runs in AppProject cluster-apps, whatever its file says: sources from the cluster repository
+# only, no openshift-* or kube-* namespaces, no cluster-scoped objects, and only the namespaced kinds
+# listed below. The backend's git writer can commit to the cluster repository, so whatever this project
+# allows, a leaked writer token can deploy on the hub: keep the list to what a cluster app needs, and add
+# a kind here (a reviewed template change) before a cluster app uses it. Argo CD refuses any other object.
+# Today: Keycloak realm imports (the demo tenants' identity provider realms). A realm import never
+# changes an existing realm, so it can't alter realm ai-grid or master.
+apiVersion: argoproj.io/v1alpha1
+kind: AppProject
+metadata:
+  name: cluster-apps
+  namespace: openshift-gitops
+spec:
+  description: Apps from the cluster repository (bootstrap/cluster-apps.yaml)
+  sourceRepos: ["${CLUSTER_REPO}"]
+  destinations:
+    - { server: https://kubernetes.default.svc, namespace: "!openshift-*" }
+    - { server: https://kubernetes.default.svc, namespace: "!kube-*" }
+    - { server: https://kubernetes.default.svc, namespace: "*" }
+  clusterResourceWhitelist: []
+  namespaceResourceWhitelist:
+    - { group: k8s.keycloak.org, kind: KeycloakRealmImport }
+---
+apiVersion: argoproj.io/v1alpha1
+kind: ApplicationSet
+metadata:
+  name: cluster-apps
+  namespace: openshift-gitops
+spec:
+  # Deleting this ApplicationSet leaves what its apps deployed in place.
+  syncPolicy: { preserveResourcesOnDeletion: true }
+  goTemplate: true
+  goTemplateOptions: ["missingkey=error"]
+  generators:
+    - git:
+        repoURL: ${CLUSTER_REPO}
+        revision: ${CLUSTER_REF}
+        files:
+          - path: clusters/${CLUSTER}/apps/*/application.yaml
+  template:
+    metadata:
+      name: 'cluster-{{.metadata.name}}'
+      namespace: openshift-gitops
+    spec:
+      project: cluster-apps
+      source:
+        repoURL: ${CLUSTER_REPO}
+        targetRevision: ${CLUSTER_REF}
+        path: '{{.path.path}}/manifests'
+      destination:
+        server: https://kubernetes.default.svc
+        namespace: '{{.spec.destination.namespace}}'
+  templatePatch: |
+    spec:
+      syncPolicy: {{ .spec.syncPolicy | toJson }}

@@ -4,6 +4,12 @@ E2E_SPOKE=${E2E_SPOKE:-$(for s in $SPOKES; do [[ $(role_of $s) != inference ]] &
 KC=$(kc $HOST get configmap ai-grid-hub-info -n ai-grid-policies -o jsonpath='{.data.keycloakHost}')
 MAAS=$(maas_url $E2E_SPOKE)
 TENANT_USER=${TENANT_USER:-alice}
+# A test user and its password come from Secret ai-grid-test-users, which a cluster repository's demo
+# tenants write (docs/runbook.md, "Organizations"). A hub without them has no tenant to sign in as.
+if [[ -z $(kc $HOST get secret ai-grid-test-users -n $KEYCLOAK_NS -o jsonpath="{.data.$TENANT_USER}" 2>/dev/null) ]]; then
+  log "SKIP $(basename "$0"): no test user $TENANT_USER in keycloak/ai-grid-test-users (no demo tenants; set TENANT_USER for another)"
+  exit 0
+fi
 bearer() { printf 'Authorization: Bearer %s\n' "$1"; }
 e2e_login() {
   local pw tok
