@@ -46,7 +46,8 @@ fi
 api "$base" | jq '.bruteForceProtected = true | .permanentLockout = false | .failureFactor = 10
   | .waitIncrementSeconds = 60 | .maxFailureWaitSeconds = 900' | api -X PUT "$base" -d @- >/dev/null
 # Groups and the groups claim, as in realm-ai-grid.yaml, for a realm imported before them (the import runs
-# once). Each organization's group <organization id> holds leaf groups that carry maas_groups
+# once). Each organization's group, named after the organization (Keycloak's hidden group per organization
+# already has its ID as name), holds leaf groups that carry maas_groups
 # (`<organization id>/<group>`), which scope maas emits as the groups claim. A leaf group named
 # `<organization id>:<group>` from the earlier shape hands its members to the new one and is deleted.
 realm_yaml="$(dirname "$0")/../apps/keycloak/manifests/realm-ai-grid.yaml"
@@ -57,6 +58,7 @@ while read -r parent; do
   pid=$(group_id "$parent")
   [[ -n $pid ]] || { api -X POST "$base/groups" -d "$(jq -nc --arg n "$parent" '{name: $n}')" >/dev/null; pid=$(group_id "$parent"); }
   [[ -n $pid ]] || die "group $parent not created in realm $realm"
+  poid=$(api "$base/organizations?search=$parent&exact=true" | jq -re '.[0].id') || die "organization $parent not found in realm $realm"
   while read -r child; do
     name=$(jq -r .name <<<"$child")
     cid=$(group_id "$parent/$name")
@@ -66,8 +68,8 @@ while read -r parent; do
     else
       api "$base/groups/$cid" | jq --argjson c "$child" '.attributes = $c.attributes' | api -X PUT "$base/groups/$cid" -d @- >/dev/null
     fi
-    old=$(api -G "$base/groups" --data-urlencode "search=$parent:$name" -d exact=true \
-      | jq -r --arg n "$parent:$name" '.[] | select(.name == $n) | .id')
+    old=$(api -G "$base/groups" --data-urlencode "search=$poid:$name" -d exact=true \
+      | jq -r --arg n "$poid:$name" '.[] | select(.name == $n) | .id')
     if [[ -n $old ]]; then
       for m in $(api "$base/groups/$old/members?max=10000" | jq -r '.[].id'); do api -X PUT "$base/users/$m/groups/$cid" >/dev/null; done
       api -X DELETE "$base/groups/$old" >/dev/null
@@ -142,7 +144,7 @@ add_group() {
 }
 # Local users of the broker realm, for the CLI and verify (password grant): unmanaged members of their
 # organization, with email addresses outside every organization's domain, so a brokered user never
-# matches one. Group <name> is the realm's group <name> under group <organization id>; "-" = no group, so in no
+# matches one. Group <name> is the realm's group <name> under the organization's group; "-" = no group, so in no
 # subscription.
 while read -r u org grp; do
   oid=$(api "$base/organizations?search=$org&exact=true" | jq -re '.[0].id') || die "organization $org not found in realm $realm"   # a UUID, which MaaS requires
@@ -150,7 +152,7 @@ while read -r u org grp; do
     "$(jq -nc --arg org "$org" --arg oid "$oid" '{maas_orgs: [([{organization_id: $oid, organization_name: $org, roles: ["member"]}] | tojson)]}')") \
     || die "user $u in realm $realm not set up"
   api -X POST "$base/organizations/$oid/members" -d "\"$id\"" >/dev/null 2>&1 || true   # 409 when already a member
-  [[ $grp == - ]] || add_group $realm "$id" "$oid/$grp"
+  [[ $grp == - ]] || add_group $realm "$id" "$org/$grp"
 done <<'USERS'
 alice org1 group1
 dave org1 -

@@ -61,10 +61,11 @@ spec:
     # group carries attribute maas_groups, `<organization id>/<group>` (ODH-ADR-MS-0007's canonical form),
     # and scope maas emits the values of the user's groups. Only leaf groups carry it, because a parent
     # group's attributes reach every member of its children. bootstrap/35-keycloak.sh applies the same
-    # shape to a realm that already exists.
+    # shape to a realm that already exists. A parent is named after its organization, never its ID: Keycloak
+    # keeps a hidden internal group named after each organization's ID, so a group of that name gets 409.
     groups:
-      - { name: "6c0e9545-c68e-448e-bd38-a4cca32e963a", subGroups: [{ name: group1, attributes: { maas_groups: ["6c0e9545-c68e-448e-bd38-a4cca32e963a/group1"] } }] }
-      - { name: "f482cdb6-4658-480b-add6-0464f8d93461", subGroups: [{ name: group1, attributes: { maas_groups: ["f482cdb6-4658-480b-add6-0464f8d93461/group1"] } }] }
+      - { name: org1, subGroups: [{ name: group1, attributes: { maas_groups: ["6c0e9545-c68e-448e-bd38-a4cca32e963a/group1"] } }] }
+      - { name: org2, subGroups: [{ name: group1, attributes: { maas_groups: ["f482cdb6-4658-480b-add6-0464f8d93461/group1"] } }] }
     identityProviderMappers:
       # Brokered usernames are the provider's alias and its fixed subject (org1-idp.<sub>): MaaS keys
       # users on this name, so it never repeats across organizations and never follows a rename or a
@@ -74,11 +75,11 @@ spec:
       - { name: organization, identityProviderAlias: org1-idp, identityProviderMapper: hardcoded-attribute-idp-mapper,
           config: { attribute: maas_orgs, attribute.value: '[{"organization_id":"6c0e9545-c68e-448e-bd38-a4cca32e963a","organization_name":"org1","roles":["member"]}]', syncMode: FORCE } }
       - { name: group1, identityProviderAlias: org1-idp, identityProviderMapper: oidc-advanced-group-idp-mapper,
-          config: { claims: '[{"key":"groups","value":"group1"}]', are.claim.values.regex: "false", group: "/6c0e9545-c68e-448e-bd38-a4cca32e963a/group1", syncMode: FORCE } }
+          config: { claims: '[{"key":"groups","value":"group1"}]', are.claim.values.regex: "false", group: "/org1/group1", syncMode: FORCE } }
       - { name: organization, identityProviderAlias: org2-idp, identityProviderMapper: hardcoded-attribute-idp-mapper,
           config: { attribute: maas_orgs, attribute.value: '[{"organization_id":"f482cdb6-4658-480b-add6-0464f8d93461","organization_name":"org2","roles":["member"]}]', syncMode: FORCE } }
       - { name: group1, identityProviderAlias: org2-idp, identityProviderMapper: oidc-advanced-group-idp-mapper,
-          config: { claims: '[{"key":"groups","value":"group1"}]', are.claim.values.regex: "false", group: "/f482cdb6-4658-480b-add6-0464f8d93461/group1", syncMode: FORCE } }
+          config: { claims: '[{"key":"groups","value":"group1"}]', are.claim.values.regex: "false", group: "/org2/group1", syncMode: FORCE } }
     # First sign-in through a provider only creates the user and makes them a member of that provider's
     # organization. Keycloak's default flow would show a profile form when an attribute is missing (where
     # the user could type any username) and offer to link an existing account with the same email (which
