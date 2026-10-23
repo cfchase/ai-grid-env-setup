@@ -9,7 +9,7 @@
 # The catalog apps' own project: a repository the backend writes to must not deliver anything else. Only
 # the cluster repository as a source, only namespace models-as-a-service on the spokes, no cluster-scoped
 # kinds, and only the MaaS kinds the writer commits (maas.opendatahub.io, both namespaced). Argo CD refuses
-# any other object in that path. Models in git mode need their kinds added here.
+# any other object in that path, and any namespace but these two.
 apiVersion: argoproj.io/v1alpha1
 kind: AppProject
 metadata:
@@ -19,11 +19,18 @@ metadata:
 spec:
   description: Subscriptions from the cluster repository's catalog, written by the backend's git writer
   sourceRepos: [{{ .Values.catalogRepo | quote }}]
-  destinations: [{ server: "*", namespace: models-as-a-service }]
+  destinations:
+    - { server: "*", namespace: models-as-a-service }
+    - { server: "*", namespace: ai-grid-internal-models }
   clusterResourceWhitelist: []
   namespaceResourceWhitelist:
     - { group: maas.opendatahub.io, kind: MaaSSubscription }
     - { group: maas.opendatahub.io, kind: MaaSAuthPolicy }
+    # Models (catalog-models.yaml): the deployment on inference spokes, the MaaS entry on ingress ones.
+    - { group: serving.kserve.io, kind: LLMInferenceService }
+    - { group: networking.k8s.io, kind: NetworkPolicy }
+    - { group: inference.opendatahub.io, kind: ExternalModel }
+    - { group: maas.opendatahub.io, kind: MaaSModelRef }
 ---
 apiVersion: argoproj.io/v1alpha1
 kind: ApplicationSet

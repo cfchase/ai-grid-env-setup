@@ -1,0 +1,11 @@
+# Models the provider console deploys in git mode run here, on inference and combined spokes
+# (catalog/locations/<location> in the cluster repository, apps/ai-grid-spokes catalog-models.yaml).
+# The label lets odh-model-controller create an InferenceProvider per model once the KServe gateway
+# carries grid.opendatahub.io/serving (not yet: the provider wiring per model comes with grid 0.2.2).
+# A namespace here, not in the catalog: the catalog's project allows no cluster-scoped kinds, and a
+# namespace in one model's folder would be pruned with that model.
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: ai-grid-internal-models
+  labels: { grid.opendatahub.io/allowed: "true" }

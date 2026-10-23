@@ -1,0 +1,80 @@
+{{- if .Values.catalogRepo }}
+# Models the provider console creates in git mode. The backend's git writer commits each model to the
+# cluster repository as catalog/models/<id>/deployment (the LLMInferenceService and its NetworkPolicy)
+# and catalog/models/<id>/catalog (the ExternalModel and MaaSModelRef), and lists them in two indexes:
+# catalog/locations/<location>/kustomization.yaml, which every inference and combined spoke with that
+# location label deploys into namespace ai-grid-internal-models, and catalog/ingress/kustomization.yaml,
+# which every ingress and combined spoke applies to models-as-a-service. The writer never deletes an index,
+# so an empty one (resources: []) lets the last model be pruned (allowEmpty). Until the writer creates an
+# index, its apps show a ComparisonError. In AppProject ai-grid-catalog (catalog-subscriptions.yaml).
+# Not yet: routing a new model through the grid. The provider gateway declares one backend per model,
+# which comes with grid 0.2.2; until then, these models deploy and register in MaaS but aren't callable.
+apiVersion: argoproj.io/v1alpha1
+kind: ApplicationSet
+metadata: { name: ai-grid-catalog-models-locations, namespace: openshift-gitops }
+spec:
+  goTemplate: true
+  goTemplateOptions: ["missingkey=error"]
+  syncPolicy: { preserveResourcesOnDeletion: true }
+  generators:
+    {{- include "ai-grid-spokes.generators" (list "inference" "combined") | nindent 4 }}
+  template:
+    metadata: { name: 'catalog-models-{{`{{.name}}`}}' }
+    spec:
+      project: ai-grid-catalog
+      source:
+        repoURL: {{ .Values.catalogRepo | quote }}
+        targetRevision: {{ required "catalogRef" .Values.catalogRef | quote }}
+        path: 'catalog/locations/{{`{{index .metadata.labels "location"}}`}}'
+        kustomize: {}
+      destination: { server: '{{`{{.server}}`}}', namespace: ai-grid-internal-models }
+      syncPolicy:
+        automated: { selfHeal: true, prune: true, allowEmpty: true }
+        retry: { limit: -1, refresh: true, backoff: { duration: 30s, factor: 2, maxDuration: 10m } }
+        syncOptions: [SkipDryRunOnMissingResource=true]
+---
+apiVersion: argoproj.io/v1alpha1
+kind: ApplicationSet
+metadata: { name: ai-grid-catalog-models-ingress, namespace: openshift-gitops }
+spec:
+  goTemplate: true
+  goTemplateOptions: ["missingkey=error"]
+  syncPolicy: { preserveResourcesOnDeletion: true }
+  generators:
+    {{- include "ai-grid-spokes.generators" (list "ingress" "combined") | nindent 4 }}
+  template:
+    metadata: { name: 'catalog-ingress-{{`{{.name}}`}}' }
+    spec:
+      project: ai-grid-catalog
+      source:
+        repoURL: {{ .Values.catalogRepo | quote }}
+        targetRevision: {{ required "catalogRef" .Values.catalogRef | quote }}
+        path: catalog/ingress
+        kustomize: {}
+      destination: { server: '{{`{{.server}}`}}', namespace: models-as-a-service }
+      syncPolicy:
+        automated: { selfHeal: true, prune: true, allowEmpty: true }
+        retry: { limit: -1, refresh: true, backoff: { duration: 30s, factor: 2, maxDuration: 10m } }
+        syncOptions: [SkipDryRunOnMissingResource=true]
+---
+# The model namespace on inference and combined spokes, from this repository (spokes/model-namespace).
+# Never pruned: deleting it would delete every model in it.
+apiVersion: argoproj.io/v1alpha1
+kind: ApplicationSet
+metadata: { name: ai-grid-model-namespace, namespace: openshift-gitops }
+spec:
+  goTemplate: true
+  goTemplateOptions: ["missingkey=error"]
+  syncPolicy: { preserveResourcesOnDeletion: true }
+  generators:
+    {{- include "ai-grid-spokes.generators" (list "inference" "combined") | nindent 4 }}
+  template:
+    metadata: { name: 'model-namespace-{{`{{.name}}`}}' }
+    spec:
+      project: default
+      source: { repoURL: {{ required "gitRepo" .Values.gitRepo | quote }}, targetRevision: {{ required "gitRef" .Values.gitRef | quote }}, path: spokes/model-namespace }
+      destination: { server: '{{`{{.server}}`}}' }
+      syncPolicy:
+        automated: { selfHeal: true, prune: false }
+        retry: { limit: -1, refresh: true, backoff: { duration: 30s, factor: 2, maxDuration: 10m } }
+{{- end }}
