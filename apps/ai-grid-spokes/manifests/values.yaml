@@ -1,4 +1,8 @@
 # gitRepo and gitRef come from the root ApplicationSet as Helm parameters (bootstrap/00-gitops.sh).
+# The cluster repository the backend's git writer commits to (catalog/subscriptions/ in git mode). Empty:
+# no catalog apps. With the demo-cluster split these become root parameters, like gitRepo and gitRef.
+catalogRepo: https://github.com/ai-grid-cloud/demo-cluster.git
+catalogRef: main
 odhGitopsRef: "e6fe1032cbb35ba4de7e3c053dde425cbe63fffe"         # odh-gitops main, 2026-10-21 (PR 181; DSC aiGrid left unset, see spokes/platform/values/common.yaml)
 gridVersion: 0.2.0             # switch to 0.2.1 once it's tagged and its charts are published
 # The grid gateway image by digest (the v<gridVersion> tag's multi-arch index); bump with gridVersion:

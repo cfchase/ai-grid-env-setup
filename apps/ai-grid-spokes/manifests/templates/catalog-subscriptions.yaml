@@ -1,0 +1,32 @@
+{{- if .Values.catalogRepo }}
+# Subscriptions the provider console creates in git mode: the backend's git writer commits one file per
+# subscription, catalog/subscriptions/<id>.yaml (the MaaSSubscription and its <id>-policy MaaSAuthPolicy,
+# namespace models-as-a-service), to the cluster repository. Every entry spoke gets all of them, like the
+# tenant intent. Prune follows the writer: deleting a subscription deletes its file, then its objects;
+# allowEmpty lets that happen for the last one too (Argo CD's automated sync otherwise refuses to prune
+# down to nothing). Until the writer's first commit the path doesn't exist and the apps show a
+# ComparisonError, which clears on that commit.
+apiVersion: argoproj.io/v1alpha1
+kind: ApplicationSet
+metadata: { name: ai-grid-catalog-subscriptions, namespace: openshift-gitops }
+spec:
+  goTemplate: true
+  goTemplateOptions: ["missingkey=error"]
+  syncPolicy: { preserveResourcesOnDeletion: true }
+  generators:
+    {{- include "ai-grid-spokes.generators" (list "ingress" "combined") | nindent 4 }}
+  template:
+    metadata: { name: 'subscriptions-{{`{{.name}}`}}' }
+    spec:
+      project: default
+      source:
+        repoURL: {{ .Values.catalogRepo | quote }}
+        targetRevision: {{ required "catalogRef" .Values.catalogRef | quote }}
+        path: catalog/subscriptions
+        directory: { include: "*.yaml" }
+      destination: { server: '{{`{{.server}}`}}', namespace: models-as-a-service }
+      syncPolicy:
+        automated: { selfHeal: true, prune: true, allowEmpty: true }
+        retry: { limit: -1, refresh: true, backoff: { duration: 30s, factor: 2, maxDuration: 10m } }
+        syncOptions: [SkipDryRunOnMissingResource=true]
+{{- end }}
