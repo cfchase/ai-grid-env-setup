@@ -9,7 +9,9 @@
 # with main's sha-<commit>@<digest> after they merge. Both are copies in the hub's internal registry
 # (oc tag --source=docker <ghcr image>@<digest> ai-grid/<stream>:uat-pr16|uat-pr42 --reference-policy=local),
 # because publish-pr-image deletes a pr-<N> digest when the PR is pushed again (it broke the backend pin
-# 2026-10-22). Backend: pr-16 rebuilt from merge 78db415 (head 8c1a1bc), same code as before. The base ref stays f2b1ab1: main changed only a comment there.
+# 2026-10-22). Backend (2026-10-23): uat-writer, built on demo1 by BuildConfig ai-grid-backend-local from a
+# git archive of backend uat/writer c112f8a (main f8730fa + PR 16 ed475d8 + PR 27 f5c124d + draft PR 29's git
+# writer), build ai-grid-backend-local-3; AI_GRID_WRITE_MODE stays cluster. It replaces uat-pr16. The base ref stays f2b1ab1: main changed only a comment there.
 apiVersion: kustomize.config.k8s.io/v1alpha1
 kind: Component
 patches:
@@ -18,4 +20,4 @@ patches:
       - { op: test, path: /spec/template/spec/containers/1/name, value: bff }
       - { op: replace, path: /spec/template/spec/containers/1/image, value: "image-registry.openshift-image-registry.svc:5000/ai-grid/ai-grid-provider-console@sha256:ce38694e3f9e058a031e0a28e9d158572e87c4f50f3d17d685c1a648df2dd358" }
       - { op: test, path: /spec/template/spec/containers/2/name, value: ai-grid-backend }
-      - { op: replace, path: /spec/template/spec/containers/2/image, value: "image-registry.openshift-image-registry.svc:5000/ai-grid/ai-grid-backend@sha256:004b7d33d0eb3dbaef59ae45cd205a99f12b85aebf5e8c00ccba5e0ce60d041e" }
+      - { op: replace, path: /spec/template/spec/containers/2/image, value: "image-registry.openshift-image-registry.svc:5000/ai-grid/ai-grid-backend@sha256:fcc37b8f5609f9ad739bba57e2d07daaea31fc724758f12a25f680a9403f1bf7" }
