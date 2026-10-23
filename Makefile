@@ -1,5 +1,5 @@
 SHELL := /bin/bash
-.PHONY: login hub spokes all verify console teardown spoke-gpu spoke-gpu-delete spoke-cpu spoke-cpu-delete spoke-catalog spoke-infra spoke-join spoke-commit spoke-uninstall
+.PHONY: login hub spokes all verify console teardown spoke-gpu spoke-gpu-delete spoke-cpu spoke-cpu-delete spoke-catalog spoke-infra spoke-join spoke-commit spoke-uninstall git-writer-secret
 # Run hack/quay-env.sh once first. Every script is safe to rerun.
 # With clusters.local.yaml (clusters.example.yaml): a kubeconfig per cluster in .kube-cache/; rerun
 # when a token expires (a day). NAMES="host site-a" logs in to those only.
@@ -25,6 +25,11 @@ console:
 	bash bootstrap/60-console.sh
 teardown:
 	bash bootstrap/99-teardown.sh
+# The backend's git writer token, from a file you keep (hack/git-writer-secret.sh); the value is never printed.
+git-writer-secret:
+	@test -n "$(TOKEN_FILE)" || { echo "usage: make git-writer-secret TOKEN_FILE=<path>"; exit 1; }
+	@test -s "$(TOKEN_FILE)" || { echo "ERROR: TOKEN_FILE is missing or empty"; exit 1; }
+	bash hack/git-writer-secret.sh "$(TOKEN_FILE)"
 # Preparing a remote spoke (kubeconfig $KUBEDIR/<SPOKE>, from make login); see the runbook's remote-spoke table.
 # GPU_INSTANCE_TYPE (g6.xlarge), GPU_REPLICAS, GPU_AZ, CPU_INSTANCE_TYPE, CPU_REPLICAS, DRY_RUN=1 tune them.
 need-spoke = @test -n "$(SPOKE)" || { echo "usage: make $@ SPOKE=<name>"; exit 1; }

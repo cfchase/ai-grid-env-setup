@@ -239,17 +239,29 @@ The console pod's backend container has the writer's settings (`apps/console/man
 `/var/run/secrets/ai-grid-git/token`. The Secret is optional: without it the pod starts, and mode
 `cluster` ignores the git settings.
 
-The token is a fine-grained GitHub PAT with `contents: write` on `demo-cluster` only. Create the Secret
-yourself; no script or agent handles the token. The token travels through stdin, never the command line
-or shell history:
+The token is a fine-grained GitHub PAT with `contents: write` on `demo-cluster` only. Keep it in a file
+only you can read (mode `600`), outside any git repository. To create or update the Secret on the hub, run:
 
 ```bash
-read -rs TOKEN && printf '%s' "$TOKEN" | oc create secret generic ai-grid-backend-git -n ai-grid --from-file=token=/dev/stdin; unset TOKEN
+make git-writer-secret TOKEN_FILE=PATH_TO_TOKEN_FILE
 ```
 
-Rotate it with the same command after `oc delete secret ai-grid-backend-git -n ai-grid`, then
-`oc rollout restart deployment/ai-grid-provider-console -n ai-grid` (the backend reads the file once, at
-start).
+The target fails if `TOKEN_FILE` is unset, missing or empty. `hack/git-writer-secret.sh` pipes the file
+into `oc create secret --dry-run=client | oc apply --server-side`, so the token never appears in output,
+on a command line, or in a `last-applied-configuration` annotation. No agent runs this target or reads the
+file.
+
+To rotate the token:
+
+1. Regenerate the PAT on GitHub, with the same repository and permission.
+2. Write the new token to the same file.
+3. Run `make git-writer-secret TOKEN_FILE=PATH_TO_TOKEN_FILE` again.
+4. Restart the console pod: the backend reads the token file once, at start
+   (`newGitWriter` in the backend's `cmd/ai-grid-provider-backend/main.go`, `feat/gitops-writer` `8eb4b9d`):
+
+   ```bash
+   oc rollout restart deployment/ai-grid-provider-console -n ai-grid
+   ```
 
 Switching to `AI_GRID_WRITE_MODE=git` needs a backend image with the writer (main plus backend PRs 16 and
 27 plus `feat/gitops-writer`) and Chris's go. In mode `git`, a missing or unreadable token file stops the
