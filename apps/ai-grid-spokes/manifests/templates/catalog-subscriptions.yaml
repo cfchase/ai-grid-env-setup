@@ -6,6 +6,25 @@
 # allowEmpty lets that happen for the last one too (Argo CD's automated sync otherwise refuses to prune
 # down to nothing). Until the writer's first commit the path doesn't exist and the apps show a
 # ComparisonError, which clears on that commit.
+# The catalog apps' own project: a repository the backend writes to must not deliver anything else. Only
+# the cluster repository as a source, only namespace models-as-a-service on the spokes, no cluster-scoped
+# kinds, and only the MaaS kinds the writer commits (maas.opendatahub.io, both namespaced). Argo CD refuses
+# any other object in that path. Models in git mode need their kinds added here.
+apiVersion: argoproj.io/v1alpha1
+kind: AppProject
+metadata:
+  name: ai-grid-catalog
+  namespace: openshift-gitops
+  annotations: { argocd.argoproj.io/sync-wave: "-1" }
+spec:
+  description: Subscriptions from the cluster repository's catalog, written by the backend's git writer
+  sourceRepos: [{{ .Values.catalogRepo | quote }}]
+  destinations: [{ server: "*", namespace: models-as-a-service }]
+  clusterResourceWhitelist: []
+  namespaceResourceWhitelist:
+    - { group: maas.opendatahub.io, kind: MaaSSubscription }
+    - { group: maas.opendatahub.io, kind: MaaSAuthPolicy }
+---
 apiVersion: argoproj.io/v1alpha1
 kind: ApplicationSet
 metadata: { name: ai-grid-catalog-subscriptions, namespace: openshift-gitops }
@@ -18,7 +37,7 @@ spec:
   template:
     metadata: { name: 'subscriptions-{{`{{.name}}`}}' }
     spec:
-      project: default
+      project: ai-grid-catalog
       source:
         repoURL: {{ .Values.catalogRepo | quote }}
         targetRevision: {{ required "catalogRef" .Values.catalogRef | quote }}

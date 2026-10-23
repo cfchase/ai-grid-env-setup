@@ -43,6 +43,10 @@ spec:
 #   oc start-build ai-grid-provider-console-local -n ai-grid --from-dir=<console checkout> --follow
 #   oc start-build ai-grid-backend-local -n ai-grid --from-dir=<backend checkout> --follow
 #   oc rollout restart deploy/ai-grid-provider-console -n ai-grid
+# From a git worktree, --from-dir and --from-repo upload the wrong tree or nothing (oc misreads the
+# worktree's .git file). Upload an exact commit instead, which also leaves untracked files out:
+#   git -C <checkout> archive --format=tar -o /tmp/src.tar <commit>
+#   oc start-build ai-grid-backend-local -n ai-grid --from-archive=/tmp/src.tar --follow
 apiVersion: build.openshift.io/v1
 kind: BuildConfig
 metadata: { name: ai-grid-provider-console-local }
