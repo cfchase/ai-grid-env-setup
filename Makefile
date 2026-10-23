@@ -28,7 +28,7 @@ teardown:
 # The backend's git writer token, from a file you keep (hack/git-writer-secret.sh); the value is never printed.
 git-writer-secret:
 	@test -n "$(TOKEN_FILE)" || { echo "usage: make git-writer-secret TOKEN_FILE=<path>"; exit 1; }
-	@test -s "$(TOKEN_FILE)" || { echo "ERROR: TOKEN_FILE is missing or empty"; exit 1; }
+	@test -s "$(TOKEN_FILE)" || { echo "ERROR: TOKEN_FILE=$(TOKEN_FILE) is missing or empty (give a full path: a ~ after = isn't expanded)"; exit 1; }
 	bash hack/git-writer-secret.sh "$(TOKEN_FILE)"
 # Preparing a remote spoke (kubeconfig $KUBEDIR/<SPOKE>, from make login); see the runbook's remote-spoke table.
 # GPU_INSTANCE_TYPE (g6.xlarge), GPU_REPLICAS, GPU_AZ, CPU_INSTANCE_TYPE, CPU_REPLICAS, DRY_RUN=1 tune them.

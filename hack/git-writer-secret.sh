@@ -9,6 +9,7 @@ file=${1:-}
 [[ -n $file ]] || die "usage: make git-writer-secret TOKEN_FILE=<path to the token file>"
 [[ -f $file ]] || die "TOKEN_FILE=$file: no such file"
 [[ -s $file ]] || die "TOKEN_FILE=$file is empty"
+kc "$HOST" whoami >/dev/null || die "can't reach the hub with $(kcfg "$HOST"): log in, or set HOST_KUBECONFIG to the hub's kubeconfig"
 kc "$HOST" get namespace ai-grid >/dev/null || die "namespace ai-grid isn't on the hub yet: sync Argo CD app console first"
 # Server-side apply: a client-side apply would also copy the token into the
 # kubectl.kubernetes.io/last-applied-configuration annotation.

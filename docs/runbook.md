@@ -271,7 +271,8 @@ only you can read (mode `600`), outside any git repository. To create or update 
 make git-writer-secret TOKEN_FILE=PATH_TO_TOKEN_FILE
 ```
 
-The target fails if `TOKEN_FILE` is unset, missing or empty. `hack/git-writer-secret.sh` pipes the file
+Give `TOKEN_FILE` as a full path: zsh doesn't expand a `~` after `=`. If this worktree has no
+`clusters.local.yaml`, also set `HOST_KUBECONFIG` to the hub's kubeconfig. The target fails if `TOKEN_FILE` is unset, missing or empty. `hack/git-writer-secret.sh` pipes the file
 into `oc create secret --dry-run=client | oc apply --server-side`, so the token never appears in output,
 on a command line, or in a `last-applied-configuration` annotation. No agent runs this target or reads the
 file.
