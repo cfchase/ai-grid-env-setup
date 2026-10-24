@@ -2,8 +2,8 @@
 # Models the provider console creates in git mode. The backend's git writer commits each model to the
 # cluster repository as catalog/models/<id>/deployment (the LLMInferenceService and its NetworkPolicy)
 # and catalog/models/<id>/catalog (the ExternalModel and MaaSModelRef), and lists them in two indexes:
-# catalog/locations/<location>/kustomization.yaml, which every inference and combined spoke with that
-# location label deploys into namespace ai-grid-internal-models, and catalog/ingress/kustomization.yaml,
+# catalog/clusters/<ManagedCluster name>/kustomization.yaml, which that inference or combined spoke deploys
+# into namespace ai-grid-internal-models (placement is per cluster), and catalog/ingress/kustomization.yaml,
 # which every ingress and combined spoke applies to models-as-a-service. The writer never deletes an index,
 # so an empty one (resources: []) lets the last model be pruned (allowEmpty). Until the writer creates an
 # index, its apps show a ComparisonError. In AppProject ai-grid-catalog (catalog-subscriptions.yaml).
@@ -11,7 +11,7 @@
 # which comes with grid 0.2.2; until then, these models deploy and register in MaaS but aren't callable.
 apiVersion: argoproj.io/v1alpha1
 kind: ApplicationSet
-metadata: { name: ai-grid-catalog-models-locations, namespace: openshift-gitops }
+metadata: { name: ai-grid-catalog-models-clusters, namespace: openshift-gitops }
 spec:
   goTemplate: true
   goTemplateOptions: ["missingkey=error"]
@@ -25,7 +25,7 @@ spec:
       source:
         repoURL: {{ .Values.catalogRepo | quote }}
         targetRevision: {{ required "catalogRef" .Values.catalogRef | quote }}
-        path: 'catalog/locations/{{`{{index .metadata.labels "location"}}`}}'
+        path: 'catalog/clusters/{{`{{.name}}`}}'
         kustomize: {}
       destination: { server: '{{`{{.server}}`}}', namespace: ai-grid-internal-models }
       syncPolicy:
