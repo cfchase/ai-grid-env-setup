@@ -42,6 +42,8 @@ patches:
       - { op: add, path: /spec/template/spec/containers/2/env/-, value: { name: AI_GRID_GIT_URL, value: "https://github.com/ai-grid-cloud/demo-cluster.git" } }
       - { op: add, path: /spec/template/spec/containers/2/env/-, value: { name: AI_GRID_GIT_BRANCH, value: main } }
       - { op: add, path: /spec/template/spec/containers/2/env/-, value: { name: AI_GRID_GIT_TOKEN_FILE, value: /var/run/secrets/ai-grid-git/token } }
+      # The spokes' grid namespace: models in git mode admit it to their workload and scheduler ports.
+      - { op: add, path: /spec/template/spec/containers/2/env/-, value: { name: AI_GRID_GRID_NAMESPACE, value: grid } }
       - op: add
         path: /spec/template/spec/containers/2/volumeMounts
         value: [{ name: ai-grid-git, mountPath: /var/run/secrets/ai-grid-git, readOnly: true }]
