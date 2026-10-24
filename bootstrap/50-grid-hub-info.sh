@@ -24,6 +24,14 @@ for s in $SITES; do
   pinned=$(yq ".siteDigests[\"$s\"]" "$(dirname "$0")/../apps/ai-grid-spokes/manifests/values.yaml")
   [[ $pinned == "$fp" ]] || log "commit this digest: set siteDigests.$s: \"$fp\" in apps/ai-grid-spokes/manifests/values.yaml"
 done
+# Each grid site's gossip load balancer, which every site seeds from (gridSeeds).
+want=$(for s in $SITES; do
+  [[ $(site_role "$s") == ingress ]] && continue
+  h=$(kc $s get service grid-operator-swim -n "$GRID_NS" -o jsonpath='{.status.loadBalancer.ingress[0].hostname}' 2>/dev/null || true)
+  [[ -n $h ]] && echo "$h:7946" || log "$s has no gossip load balancer address yet: rerun once grid-operator-$s is Healthy"
+done | sort)
+pinned=$(yq '.gridSeeds[]' "$(dirname "$0")/../apps/ai-grid-spokes/manifests/values.yaml" | sort)
+[[ -z $want || $want == "$pinned" ]] || log "commit these seeds: set gridSeeds in apps/ai-grid-spokes/manifests/values.yaml to: $(echo $want | sed 's/ /, /g')"
 # Each inference site's Globalnet address, which other sites' consumers dial (providerGlobalIPs).
 for s in $SITES; do
   [[ $(site_role "$s") == inference ]] || continue

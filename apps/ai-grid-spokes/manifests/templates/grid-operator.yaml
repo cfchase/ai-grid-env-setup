@@ -28,6 +28,9 @@ spec:
               # sites), operators poll their peers, and the consumer gateway routes each model to the
               # least-loaded site from its operator's serving config (grid-consumer.yaml gridServing).
               signals: poll
+              {{- with .Values.gridSeeds }}
+              seeds: {{ toJson . }}
+              {{- end }}
               # The model this site serves, registered as its InferenceProvider.
               providers:
                 {{ .Values.modelName }}:

@@ -24,6 +24,15 @@ for s in $SPOKES; do
   # moves a site to Active once gossip gives it a gateway address, which needs a peer (Task 11).
   uat "$s peer sites Active" "gossip not converged, or the GridSite list failed: kc $s get gridsites" \
     bash -c "l=\$(kc $s get gridsites -o jsonpath='{range .items[*]}{.metadata.name} {.status.phase}{\"\\n\"}{end}') || exit 1; grep -q '^$s ' <<<\"\$l\" || exit 1; ! grep -v '^$s ' <<<\"\$l\" | grep -v ' Active\$' | grep -q ."
+  # Every other grid site must be among them: a site that never met its peers (no gossip seeds) passes
+  # the check above with only itself listed.
+  if [[ $r != ingress ]]; then
+    for t in $SPOKES; do
+      [[ $t == "$s" || $(site_role $t) == ingress ]] && continue
+      uat "$s knows grid site $t" "no GridSite $t on $s: gossip seeds (gridSeeds, bootstrap/50-grid-hub-info.sh) or the SWIM load balancers" \
+        bash -c "kc $s get gridsite $t -o jsonpath='{.status.phase}' | grep -qx Active"
+    done
+  fi
   uat "$s ai-grid-ready"     "DSC not Ready or the grid operator not running on $s (D3)" pol $s ai-grid-ready
   # Signal-based routing (grid-operator.yaml signals poll; grid-consumer.yaml gridServing): providers
   # publish the scheduler's load, and every consumer gets its operator's serving config.

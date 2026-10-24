@@ -3,8 +3,8 @@
 # no catalog apps. With the demo-cluster split these become root parameters, like gitRepo and gitRef.
 catalogRepo: https://github.com/ai-grid-cloud/demo-cluster.git
 catalogRef: main
-odhGitopsRef: "e6fe1032cbb35ba4de7e3c053dde425cbe63fffe"         # odh-gitops main, 2026-10-21 (PR 181; DSC aiGrid left unset, see spokes/platform/values/common.yaml)
-gridVersion: 0.2.2             # the grid release; grid-enrollment's chart version is in apps/grid-enrollment
+odhGitopsRef: "e6fe1032cbb35ba4de7e3c053dde425cbe63fffe" # odh-gitops main, 2026-10-21 (PR 181; DSC aiGrid left unset, see spokes/platform/values/common.yaml)
+gridVersion: 0.2.2 # the grid release; grid-enrollment's chart version is in apps/grid-enrollment
 # The grid gateway image by digest (the v<gridVersion> tag's multi-arch index); bump with gridVersion:
 # skopeo inspect --raw docker://ghcr.io/praxis-proxy/grid-gateway:v<gridVersion> | shasum -a 256
 gridGatewayDigest: sha256:9cc6573fe782a8c43883d57052cb87f3a343c803cb379a97a742036941ca725c
@@ -34,6 +34,13 @@ siteDigests:
 # inference site before an ingress one.
 providerGlobalIPs:
   site-b: "242.2.255.253"
+# Gossip seeds: each grid site's SWIM load balancer, host:7946 (Service grid-operator-swim). Every grid
+# site gets the whole list and finds the others through it; with none, each site gossips alone, so
+# signal-based routing sees only the local site. The load balancer names change on every build:
+# bootstrap/50-grid-hub-info.sh prints them; commit them here.
+gridSeeds:
+  - a4176d12232764d7ead4ddc0d5beed6c-04192c27b18fcef7.elb.us-east-2.amazonaws.com:7946
+  - a63b54c3cda384513bed9853d649bb6d-0237460db8b3bc49.elb.us-east-2.amazonaws.com:7946
 # The sites whose consumers call those inference sites: every ingress and combined spoke, and
 # local-cluster while the hub is one. Each inference provider pins exactly these sites' digests
 # (verify/05 checks the list against the spokes' roles).
