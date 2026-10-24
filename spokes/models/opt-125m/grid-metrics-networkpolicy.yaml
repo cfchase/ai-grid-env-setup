@@ -1,0 +1,15 @@
+# The grid operator reads the model's load from its llm-d scheduler (EPP) metrics on 9090, so the grid
+# can route to the least-loaded site (repos/grid docs/site-selection.md). KServe admits that port from
+# the monitoring namespaces only. After kahowell/ai-grid-tenant 681d183, narrowed to the operator's pods.
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata: { name: allow-grid-scheduler-metrics, namespace: aigrid-models }
+spec:
+  podSelector:
+    matchLabels: { app.kubernetes.io/component: llminferenceservice-router-scheduler }
+  policyTypes: [Ingress]
+  ingress:
+    - from:
+        - namespaceSelector: { matchLabels: { kubernetes.io/metadata.name: grid } }
+          podSelector: { matchLabels: { app.kubernetes.io/instance: grid-operator } }
+      ports: [{ port: 9090, protocol: TCP }]

@@ -29,6 +29,15 @@ spec:
                   model: {{ .Values.modelName }}
                   backendKind: local
                   endpoint: https://{{ .Values.modelName }}-kserve-workload-svc.aigrid-models.svc:8000
+                  # The scheduler's load, without which the provider publishes none and the grid
+                  # can't balance (MetricsNotConfigured). The operator scrapes with the chart's
+                  # metrics-scraper ServiceAccount token. allowPlaintext: the scheduler's 9090
+                  # declares no appProtocol, so the token crosses in the clear inside the cluster.
+                  metricsConfig:
+                    endpoint: http://{{ .Values.modelName }}-epp-service.aigrid-models.svc:9090
+                    path: /metrics
+                    timeout: 2s
+                    auth: { type: serviceAccountToken, allowPlaintext: true }
             # The provider gateway's fixed ClusterIP: the address the operator advertises and probes
             # (no LoadBalancer to discover), which moves the site from Discovered to Active.
             {{- /* An inference site in providerGlobalIPs advertises its Globalnet address instead,
