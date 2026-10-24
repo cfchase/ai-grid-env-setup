@@ -31,7 +31,12 @@ spec:
               praxisConfig:
                 source: render
                 render:
-                  model: {{ .Values.modelName }}
+                  # Route each model to the least-loaded admitted site, from the serving config this
+                  # site's grid operator writes (GridNetwork consumerGateways grid-gateway, signals
+                  # poll). A candidate's cluster is its provider's clusterName, the site name, which
+                  # is how the backends below are keyed. Needs a GridNetwork on this cluster, so an
+                  # ingress-only spoke (no grid operator site) can't use it yet.
+                  gridServing: { enabled: true, networkName: {{ .Values.gridNetwork }} }
                   auth: { mode: none }
                   backends:
                     {{`{{- if eq (index .metadata.labels "ai-grid/role") "combined" }}`}}

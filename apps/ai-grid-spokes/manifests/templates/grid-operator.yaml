@@ -23,12 +23,21 @@ spec:
             grid:
               id: {{ .Values.gridId }}
               network: {{ .Values.gridNetwork }}
+              # Signal-based routing: each site serves its signals (load, readiness) on an mTLS
+              # endpoint (Service grid-operator-signals, a load balancer like the gossip one on remote
+              # sites), operators poll their peers, and the consumer gateway routes each model to the
+              # least-loaded site from its operator's serving config (grid-consumer.yaml gridServing).
+              signals: poll
               # The model this site serves, registered as its InferenceProvider.
               providers:
                 {{ .Values.modelName }}:
                   model: {{ .Values.modelName }}
                   backendKind: local
                   endpoint: https://{{ .Values.modelName }}-kserve-workload-svc.aigrid-models.svc:8000
+                  # The routing identity the consumer picks: its backend for this site, which the
+                  # consumer keys by site name. Every model on a site shares it, so the consumer's
+                  # backends stay one per site however many models there are.
+                  clusterName: '{{`{{.name}}`}}'
                   # The scheduler's load, without which the provider publishes none and the grid
                   # can't balance (MetricsNotConfigured). The operator scrapes with the chart's
                   # metrics-scraper ServiceAccount token. allowPlaintext: the scheduler's 9090

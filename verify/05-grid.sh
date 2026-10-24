@@ -25,6 +25,19 @@ for s in $SPOKES; do
   uat "$s peer sites Active" "gossip not converged, or the GridSite list failed: kc $s get gridsites" \
     bash -c "l=\$(kc $s get gridsites -o jsonpath='{range .items[*]}{.metadata.name} {.status.phase}{\"\\n\"}{end}') || exit 1; grep -q '^$s ' <<<\"\$l\" || exit 1; ! grep -v '^$s ' <<<\"\$l\" | grep -v ' Active\$' | grep -q ."
   uat "$s ai-grid-ready"     "DSC not Ready or the grid operator not running on $s (D3)" pol $s ai-grid-ready
+  # Signal-based routing (grid-operator.yaml signals poll; grid-consumer.yaml gridServing): providers
+  # publish the scheduler's load, and every consumer gets its operator's serving config.
+  gnet=$(yq .gridNetwork apps/ai-grid-spokes/manifests/values.yaml)
+  if [[ $r != ingress ]]; then
+    uat "$s grid signals poll" "GridNetwork $gnet has no signalTransport poll: grid-operator values grid.signals" \
+      bash -c "kc $s get gridnetwork $gnet -o jsonpath='{.spec.signalTransport.mode}' | grep -qx poll"
+    uat "$s provider publishes load" "provider not MetricsAvailable: NetworkPolicy allow-grid-scheduler-metrics, the scheduler's 9090, or metricsConfig (kc $s get inferenceprovider -o yaml)" \
+      bash -c "kc $s get inferenceprovider $MODEL_NAME -o jsonpath='{.status.conditions[?(@.type==\"MetricsAvailable\")].status}' | grep -qx True"
+  fi
+  if [[ $r == combined ]]; then
+    uat "$s consumer has serving config" "no ConfigMap grid-serving-$gnet-grid-gateway: GridNetwork consumerGateways, or the operator hasn't polled a site yet" \
+      kc $s get configmap grid-serving-$gnet-grid-gateway -n $GRID_NS
+  fi
   # Inference sites serve other clusters' consumers through their exported provider; every other
   # site's consumer calls each one in providerGlobalIPs at its Globalnet address.
   if [[ $r == inference ]]; then
