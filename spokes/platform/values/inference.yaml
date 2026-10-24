@@ -13,4 +13,4 @@ components:
                 from: Selector
                 selector:
                   matchExpressions:
-                    - { key: kubernetes.io/metadata.name, operator: In, values: [openshift-ingress, aigrid-models] }
+                    - { key: kubernetes.io/metadata.name, operator: In, values: [openshift-ingress, aigrid-models, ai-grid-internal-models] }
