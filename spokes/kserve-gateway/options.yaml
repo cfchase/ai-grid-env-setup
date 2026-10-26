@@ -1,0 +1,15 @@
+# The KServe inference Gateway (openshift-ai-inference, spokes/platform/values) through its GatewayClass
+# parameters: an in-cluster Service only, never a public load balancer, with a service-CA certificate
+# for that Service's name, which the listener serves. Callers are in-cluster, such as the grid's provider
+# gateway, and still pass the Gateway's token check and per-model access review (its AuthPolicy). The
+# chart's default listener has no certificate, so Envoy never opened 443 and the Gateway served nothing.
+apiVersion: v1
+kind: ConfigMap
+metadata: { name: kserve-gateway-options, namespace: openshift-ingress }
+data:
+  service: |
+    metadata:
+      annotations:
+        service.beta.openshift.io/serving-cert-secret-name: openshift-ai-inference-tls
+    spec:
+      type: ClusterIP

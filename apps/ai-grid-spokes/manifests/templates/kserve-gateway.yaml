@@ -1,0 +1,20 @@
+# The KServe inference Gateway's parameters on every grid spoke (spokes/kserve-gateway): in-cluster only,
+# with a service-CA certificate. Never pruned: the Gateway references it.
+apiVersion: argoproj.io/v1alpha1
+kind: ApplicationSet
+metadata: { name: ai-grid-kserve-gateway, namespace: openshift-gitops }
+spec:
+  goTemplate: true
+  goTemplateOptions: ["missingkey=error"]
+  syncPolicy: { preserveResourcesOnDeletion: true }
+  generators:
+    {{- include "ai-grid-spokes.generators" (list) | nindent 4 }}
+  template:
+    metadata: { name: 'kserve-gateway-{{`{{.name}}`}}' }
+    spec:
+      project: default
+      source: { repoURL: {{ required "gitRepo" .Values.gitRepo | quote }}, targetRevision: {{ required "gitRef" .Values.gitRef | quote }}, path: spokes/kserve-gateway }
+      destination: { server: '{{`{{.server}}`}}', namespace: openshift-ingress }
+      syncPolicy:
+        automated: { selfHeal: true, prune: false }
+        retry: { limit: -1, refresh: true, backoff: { duration: 30s, factor: 2, maxDuration: 10m } }

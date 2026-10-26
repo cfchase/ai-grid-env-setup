@@ -4,10 +4,17 @@ components:
     dsc: { rawDeploymentServiceConfig: Headed }
     gateway:
       spec:
+        # In-cluster only, with a service-CA certificate (spokes/kserve-gateway): the chart's default
+        # listener has no certificate, so the Gateway served nothing.
+        infrastructure:
+          parametersRef: { group: "", kind: ConfigMap, name: kserve-gateway-options }
         listeners:
           - name: https
             port: 443
             protocol: HTTPS
+            tls:
+              mode: Terminate
+              certificateRefs: [{ group: "", kind: Secret, name: openshift-ai-inference-tls }]
             allowedRoutes:
               namespaces:
                 from: Selector
