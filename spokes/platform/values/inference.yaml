@@ -3,6 +3,12 @@ components:
   kserve:
     dsc: { rawDeploymentServiceConfig: Headed }
     gateway:
+      # The grid's provider gateway calls models through this Gateway with ServiceAccount grid/grid-model-client
+      # (spokes/kserve-gateway/grid-model-client.yaml); odh-model-controller grants it get on each model in
+      # namespaces labelled grid.opendatahub.io/allowed. No publishMetrics key: this controller doesn't know it,
+      # and an unknown key publishes nothing.
+      annotations:
+        grid.opendatahub.io/serving: '{"networkName":"grid","namespace":"grid","serviceAccount":"grid-model-client","tokenSecret":"grid-model-client-token"}'
       spec:
         # In-cluster only, with a service-CA certificate (spokes/kserve-gateway): the chart's default
         # listener has no certificate, so the Gateway served nothing.

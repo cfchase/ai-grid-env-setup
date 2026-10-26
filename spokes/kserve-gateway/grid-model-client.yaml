@@ -1,0 +1,16 @@
+# The credential the grid's provider gateway presents to the KServe inference Gateway (odh-model-controller
+# PR 966): the Gateway's grid.opendatahub.io/serving annotation names this ServiceAccount and its token
+# Secret, and the controller grants it get on each model in a namespace labelled grid.opendatahub.io/allowed
+# (one Role per model), which is exactly what the Gateway's per-model access review checks. The token
+# doesn't expire, so only the provider gateway reads it (an env var from this Secret).
+apiVersion: v1
+kind: ServiceAccount
+metadata: { name: grid-model-client, namespace: grid }
+---
+apiVersion: v1
+kind: Secret
+type: kubernetes.io/service-account-token
+metadata:
+  name: grid-model-client-token
+  namespace: grid
+  annotations: { kubernetes.io/service-account.name: grid-model-client }
