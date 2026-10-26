@@ -10,5 +10,9 @@ tenantPortalRemediation: enforce
 # The MaaS Portal's sign-in proxy (Policy tenant-portal); the image is the one OpenShift AI 3.6 ships.
 portalProxyImage: registry.redhat.io/rhoai/odh-kube-auth-proxy-rhel9@sha256:8792522102e03b3272af56d61c899c65ff3b3ef36647e5b24d51b3dc0547bf95
 gridNs: grid
+# Where the console's backend puts models (AI_GRID_MODELS_NAMESPACE) and the MaaS objects
+# (AI_GRID_SUBSCRIPTION_NAMESPACE) on the spokes; Policies ai-grid-models-status and ai-grid-catalog-status check them.
+modelsNs: ai-grid-internal-models
+maasNs: models-as-a-service
 authorinoCARemediation: enforce
 clustersetNamespacesRemediation: enforce

@@ -12,3 +12,26 @@ kind: RoleBinding
 metadata: { name: ai-grid-provider-console-backend, namespace: ai-grid-policies }
 roleRef: { apiGroup: rbac.authorization.k8s.io, kind: Role, name: ai-grid-provider-console-backend }
 subjects: [{ kind: ServiceAccount, name: ai-grid-provider-console, namespace: ai-grid }]
+---
+# The status Policies (catalog-status.yaml): the roots in ai-grid-policies, whose status lists each
+# cluster that reported, and their per-cluster copies (namespace <cluster>, name ai-grid-policies.<policy>),
+# whose messages name each object found as specified or not. They use no hub templates, so unlike
+# ai-grid-ready's copies they carry no secret values. get only, on these four names.
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata: { name: ai-grid-provider-console-backend-catalog-status }
+rules:
+  - apiGroups: [policy.open-cluster-management.io]
+    resources: [policies]
+    resourceNames:
+      - ai-grid-models-status
+      - ai-grid-catalog-status
+      - ai-grid-policies.ai-grid-models-status
+      - ai-grid-policies.ai-grid-catalog-status
+    verbs: [get]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata: { name: ai-grid-provider-console-backend-catalog-status }
+roleRef: { apiGroup: rbac.authorization.k8s.io, kind: ClusterRole, name: ai-grid-provider-console-backend-catalog-status }
+subjects: [{ kind: ServiceAccount, name: ai-grid-provider-console, namespace: ai-grid }]

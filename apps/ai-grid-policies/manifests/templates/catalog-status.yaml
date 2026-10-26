@@ -1,0 +1,80 @@
+{{- /*
+Read-only status of the catalog the provider console writes to Git (models, their MaaS registrations,
+subscriptions and auth policies), reported back to the hub so the console's backend can show what is
+actually running. Argo CD only reports that it applied the files, not that a model came up.
+
+Both Policies are inform-only: they change nothing on a spoke. Each ConfigurationPolicy looks up every
+object of one kind in one namespace, with a managed-cluster template, and checks its readiness; so they
+never list names and need no change when objects come and go. A namespace with none of the kind is
+Compliant ("no object templates to check"). A lookup of a kind the cluster doesn't have fails the whole
+template, so each Policy goes only where its kinds exist: models on inference spokes, the MaaS kinds on
+ingress spokes.
+
+The backend reads each cluster's copy (namespace <cluster>, name ai-grid-policies.<policy>) and takes
+the per-object result from the status message, for example
+"llminferenceservices [a, b] found as specified in namespace ai-grid-internal-models" or
+"... [c] found but not as specified ...". The ConfigurationPolicy names below are that contract.
+*/ -}}
+apiVersion: policy.open-cluster-management.io/v1
+kind: Policy
+metadata: { name: ai-grid-models-status, namespace: ai-grid-policies }
+spec:
+  remediationAction: inform
+  disabled: false
+  policy-templates:
+    - objectDefinition:
+        apiVersion: policy.open-cluster-management.io/v1
+        kind: ConfigurationPolicy
+        metadata: { name: models-ready }
+        spec:
+          severity: low
+          object-templates-raw: |
+{{`            {{- range (lookup "serving.kserve.io/v1alpha2" "LLMInferenceService" "`}}{{ .Values.modelsNs }}{{`" "").items }}
+            - complianceType: musthave
+              objectDefinition:
+                apiVersion: serving.kserve.io/v1alpha2
+                kind: LLMInferenceService
+                metadata: { name: '{{ .metadata.name }}', namespace: '{{ .metadata.namespace }}' }
+                status: { conditions: [{ type: Ready, status: "True" }] }
+            {{- end }}`}}
+---
+apiVersion: policy.open-cluster-management.io/v1
+kind: PlacementBinding
+metadata: { name: ai-grid-models-status, namespace: ai-grid-policies }
+placementRef: { apiGroup: cluster.open-cluster-management.io, kind: Placement, name: ai-grid-inference }
+subjects: [{ apiGroup: policy.open-cluster-management.io, kind: Policy, name: ai-grid-models-status }]
+---
+apiVersion: policy.open-cluster-management.io/v1
+kind: Policy
+metadata: { name: ai-grid-catalog-status, namespace: ai-grid-policies }
+spec:
+  remediationAction: inform
+  disabled: false
+  policy-templates:
+{{- range $name, $kind := dict
+      "model-refs-ready" (list "maas.opendatahub.io/v1alpha1" "MaaSModelRef" "Ready")
+      "external-models-ready" (list "inference.opendatahub.io/v1alpha1" "ExternalModel" "Ready")
+      "subscriptions-active" (list "maas.opendatahub.io/v1alpha1" "MaaSSubscription" "Active")
+      "auth-policies-active" (list "maas.opendatahub.io/v1alpha1" "MaaSAuthPolicy" "Active") }}
+    - objectDefinition:
+        apiVersion: policy.open-cluster-management.io/v1
+        kind: ConfigurationPolicy
+        metadata: { name: {{ $name }} }
+        spec:
+          severity: low
+          object-templates-raw: |
+{{`            {{- range (lookup "`}}{{ index $kind 0 }}{{`" "`}}{{ index $kind 1 }}{{`" "`}}{{ $.Values.maasNs }}{{`" "").items }}
+            - complianceType: musthave
+              objectDefinition:
+                apiVersion: `}}{{ index $kind 0 }}{{`
+                kind: `}}{{ index $kind 1 }}{{`
+                metadata: { name: '{{ .metadata.name }}', namespace: '{{ .metadata.namespace }}' }
+                status: { phase: `}}{{ index $kind 2 }}{{` }
+            {{- end }}`}}
+{{- end }}
+---
+apiVersion: policy.open-cluster-management.io/v1
+kind: PlacementBinding
+metadata: { name: ai-grid-catalog-status, namespace: ai-grid-policies }
+placementRef: { apiGroup: cluster.open-cluster-management.io, kind: Placement, name: ai-grid-ingress }
+subjects: [{ apiGroup: policy.open-cluster-management.io, kind: Policy, name: ai-grid-catalog-status }]
