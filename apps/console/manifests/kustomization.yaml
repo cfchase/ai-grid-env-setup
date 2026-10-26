@@ -44,6 +44,11 @@ patches:
       - { op: add, path: /spec/template/spec/containers/2/env/-, value: { name: AI_GRID_GIT_TOKEN_FILE, value: /var/run/secrets/ai-grid-git/token } }
       # The spokes' grid namespace: models in git mode admit it to their workload and scheduler ports.
       - { op: add, path: /spec/template/spec/containers/2/env/-, value: { name: AI_GRID_GRID_NAMESPACE, value: grid } }
+      # The BFF reports the backend's models in this namespace (console PR 63): the backend's subscription
+      # namespace (AI_GRID_SUBSCRIPTION_NAMESPACE, default models-as-a-service), where git mode writes each
+      # model's MaaSModelRef, so subscriptions' model references match the models.
+      - { op: test, path: /spec/template/spec/containers/1/name, value: bff }
+      - { op: add, path: /spec/template/spec/containers/1/env/-, value: { name: MODELS_NAMESPACE, value: models-as-a-service } }
       - op: add
         path: /spec/template/spec/containers/2/volumeMounts
         value: [{ name: ai-grid-git, mountPath: /var/run/secrets/ai-grid-git, readOnly: true }]

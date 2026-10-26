@@ -14,12 +14,16 @@
 # writer), build ai-grid-backend-local-3, replaced uat-pr16. Now uat-models (build ai-grid-backend-local-4): a git
 # archive of backend uat/models b29ba70 = uat/writer + a304c02 (PR 29 namespace fix) + 7945d9a (models in git
 # mode) + b29ba70 (placement by cluster name), for ai-grid-dev's model GitOps test. The base ref stays f2b1ab1: main changed only a comment there.
+# Priority 1 (2026-10-26, Chris): both images are uat-p1 in demo1's internal registry, built by the -local BuildConfigs
+# from git archives. Backend: local integration/p1-demo1 804e4df = PR 27's merge ref 3428d8d + backend PR 29 (git mode
+# for subscriptions and models, b6b7885) + PR 31 (update-mask fix) + the lint fixes. Console: feat/bff-delete-version
+# 06d4cb8 = console PR 63 (subscriptions and models on the backend's RPCs) + subscription Delete sending the version.
 apiVersion: kustomize.config.k8s.io/v1alpha1
 kind: Component
 patches:
   - target: { kind: Deployment, name: ai-grid-provider-console }
     patch: |
       - { op: test, path: /spec/template/spec/containers/1/name, value: bff }
-      - { op: replace, path: /spec/template/spec/containers/1/image, value: "image-registry.openshift-image-registry.svc:5000/ai-grid/ai-grid-provider-console@sha256:ce38694e3f9e058a031e0a28e9d158572e87c4f50f3d17d685c1a648df2dd358" }
+      - { op: replace, path: /spec/template/spec/containers/1/image, value: "image-registry.openshift-image-registry.svc:5000/ai-grid/ai-grid-provider-console@sha256:ae297bc38dbc595f3e9c27a3cd4f7c77f5f23bda5628c57a56a2942304d0ef8c" }
       - { op: test, path: /spec/template/spec/containers/2/name, value: ai-grid-backend }
-      - { op: replace, path: /spec/template/spec/containers/2/image, value: "image-registry.openshift-image-registry.svc:5000/ai-grid/ai-grid-backend@sha256:8963cb4651d780a8888e547d45ed7afb2922185fe62f49eee33fa06ec719a243" }
+      - { op: replace, path: /spec/template/spec/containers/2/image, value: "image-registry.openshift-image-registry.svc:5000/ai-grid/ai-grid-backend@sha256:30ffe5ab833045d98966a25120d877eb8d2e6a9d698852289b03b966966ecbf6" }
