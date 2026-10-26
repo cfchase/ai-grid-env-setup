@@ -24,6 +24,18 @@ spec:
               fullnameOverride: grid-provider
               image: { repository: ghcr.io/praxis-proxy/grid-gateway, tag: "v{{ .Values.gridVersion }}", digest: {{ required "gridGatewayDigest" .Values.gridGatewayDigest | quote }}, flavor: grid-gateway }
               grid: { siteName: {{`{{.name}}`}} }
+              {{`{{- if eq .name "site-b" }}`}}
+              # UAT (integration only), the (a)+(c) prototype: a hand-written provider config (ConfigMap
+              # grid-provider-byo, applied by hand on site-b) routing each model by the request's model to the
+              # KServe inference Gateway with odh-model-controller PR 966's token. grid #266 will generate it.
+              praxisConfig:
+                source: byo
+                byo: { configMapName: grid-provider-byo }
+              env:
+                - name: GRID_MODEL_TOKEN
+                  valueFrom: { secretKeyRef: { name: grid-model-client-token, key: token } }
+              upstreamCA: { secretName: grid-service-ca, mountPath: /etc/praxis/upstream-ca }
+              {{`{{- else }}`}}
               praxisConfig:
                 source: render
                 render:
@@ -40,6 +52,7 @@ spec:
                         mode: tls
                         sni: {{ .Values.modelName }}-kserve-workload-svc.aigrid-models.svc
                         ca: { configMapName: openshift-service-ca.crt, key: service-ca.crt }
+              {{`{{- end }}`}}
               gridIdentity: { tlsSecretName: grid-site-identity, caSecretName: grid-ca }
               port: { containerPort: 8443, name: https }
               service: { type: ClusterIP, port: 8443 }
