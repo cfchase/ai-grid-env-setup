@@ -19,7 +19,8 @@
 # for subscriptions and models, b6b7885) + PR 31 (update-mask fix) + the lint fixes. Console: feat/bff-delete-version
 # 06d4cb8 = console PR 63 (subscriptions and models on the backend's RPCs) + subscription Delete sending the version.
 # Final priority 1 stack (2026-10-27, Chris): backend PR 29 39edc51 (git mode only, status read back from the two
-# catalog status Policies) and console PR 63 539835d, built the same way.
+# catalog status Policies) and console PR 63 539835d, built the same way. Backend now PR 29 a0b2196 (review fixes),
+# build ai-grid-backend-local-8.
 apiVersion: kustomize.config.k8s.io/v1alpha1
 kind: Component
 patches:
@@ -28,4 +29,4 @@ patches:
       - { op: test, path: /spec/template/spec/containers/1/name, value: bff }
       - { op: replace, path: /spec/template/spec/containers/1/image, value: "image-registry.openshift-image-registry.svc:5000/ai-grid/ai-grid-provider-console@sha256:74d184b3f417c512672687cc8ccec7064fbc5c9fee09ba6fec47f58952ba9e8e" }
       - { op: test, path: /spec/template/spec/containers/2/name, value: ai-grid-backend }
-      - { op: replace, path: /spec/template/spec/containers/2/image, value: "image-registry.openshift-image-registry.svc:5000/ai-grid/ai-grid-backend@sha256:1ba4259ff84cc76d69915935a2f0d9b3ae303c30f63f12526f7459b4aba940e1" }
+      - { op: replace, path: /spec/template/spec/containers/2/image, value: "image-registry.openshift-image-registry.svc:5000/ai-grid/ai-grid-backend@sha256:cd62be27779fd7020caa63409ce01cc3d4db6b99c90d5157f8978ba94c4bf30a" }
